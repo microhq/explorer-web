@@ -1,0 +1,7 @@
+= content main
+  h1
+    a href="/{{.Service.Owner}}" {{.Service.Owner}} 
+    |  / 
+    a href="/{{.Service.Owner}}/{{.Service.Name}}" {{.Service.Name}}
+  h6
+    | {{.Service.Description}}

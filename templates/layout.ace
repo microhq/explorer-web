@@ -1,0 +1,53 @@
+= doctype html
+html lang=en
+  head
+    meta charset=utf-8
+    meta http-equiv="X-UA-Compatible" content="IE=edge"
+    meta name="viewport" content="width=device-width, initial-scale=1"
+    title
+      | Micro Explorer - 
+      = yield title
+    link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" integrity="sha512-dTfge/zgoMYpP7QbHy4gWMEGsbsdZeCXz7irItjcC3sPUFtf0kuFbDz/ixG7ArTxmDjLXDmezHubeNikyKGVyQ==" crossorigin="anonymous"
+  body
+    nav class="navbar navbar-default"
+      div.container
+        div.navbar-header
+          button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar" aria-expanded="false" aria-controls="navbar"
+            span.sr-only Toggle navigation
+            span.icon-bar
+            span.icon-bar
+            span.icon-bar
+          a.navbar-brand href=/ Explorer
+        div id="navbar" class="navbar-collapse collapse"
+          form class="navbar-form navbar-left" role="search" method=post action=/search
+            div.form-group
+              input.form-control name=q id=q placeholder=search
+            button class="btn btn-default" Go!
+          div class="nav navbar-nav navbar-right"
+            {{if .User}}
+            div.dropdown
+              button class="btn btn-default dropdown-toggle navbar-btn" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true"
+                | Logged In&nbsp;
+                span.caret
+              ul.dropdown-menu aria-labelledby="dropdownMenu1"
+                li.dropdown-header
+                  | Signed in as <b>{{.User}}</b>
+                li
+                  a href="/{{.User}}" Your profile
+                li
+                  a href="/settings/profile" Settings
+                li.divider role="separator"
+                li
+                  a href="/logout" Logout
+            {{else}}
+            button type=button class="btn btn-default navbar-btn"
+              a href="/signup" Signup
+            button type=button class="btn btn-default navbar-btn"
+              a href="/login" Login
+            {{end}}
+
+    div.container
+      = yield main
+  script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"
+  script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js" integrity="sha512-K1qjQ+NcF2TYO/eI3M6v8EiNYZfA95pQumfvcVrTHtwQVDG+aHRqLi/ETn2uB+1JqwYqVG3LIvdm9lj6imS/pQ==" crossorigin="anonymous"
+

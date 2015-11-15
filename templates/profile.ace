@@ -1,0 +1,21 @@
+= content main
+  div.row
+    div.col-md-12
+      h1 {{.Profile.DisplayName}} <small>({{.Profile.Name}})</small>
+      h4 {{.Profile.Blurb}}
+    ul.list-inline.col-md-12
+      li Loc: {{.Profile.Location}} 
+      li Url:&nbsp; 
+        a href={{.Profile.Url}} {{.Profile.Url}}
+
+  div.row
+    div.col-md-12
+      h3 Services
+  {{range .Services}}
+  div.row
+    div.col-md-12
+      h3
+        a href=/{{.Owner}}/{{.Name}} {{.Name}}
+      {{.Description}}
+      hr
+  {{end}}

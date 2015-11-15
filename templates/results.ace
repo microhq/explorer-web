@@ -1,0 +1,4 @@
+= content main
+  {{range .results}}
+    .Name
+  {{end}}

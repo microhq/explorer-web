@@ -1,0 +1,5 @@
+= content title
+  | Welcome
+= content main
+  div
+    | Welcome to micro explorer. An place to share microservices.

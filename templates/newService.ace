@@ -1,0 +1,30 @@
+= content main
+  div.row
+    div.col-sm-offset-2 class="col-sm-8"
+      div.page-header
+        h3 Create a new service
+          small
+            br A service provides a description of the API, source and dependencies.
+  div.row
+    div.col-sm-offset-2 class="col-sm-8"
+      div.row
+        form method=post
+          div.form-group class="col-sm-4"
+            label for="owner" Owner 
+            input.form-control type=text name=owner id=owner value={{.User}} readonly=
+          div.form-group class="col-sm-8"
+            label for="name" Service Name
+            input.form-control type=text name=name id=name
+          div.form-group class="col-sm-12"
+            label for="description" Description (optional)
+            input.form-control type=text name=description id=description
+          div.form-group class="col-sm-12"
+            label for="website" Website (optional)
+            input.form-control type=text name=website id=website
+          div.form-group class="col-sm-12"
+            label for="readme" README.md (optional)
+            textarea.form-control rows=10 name=readme id=readme
+          div.form-group class="col-sm-12"
+            hr
+          div.form-group class="col-sm-4"
+            button.btn.btn-default Create

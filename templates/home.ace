@@ -2,4 +2,22 @@
   | Home
 
 = content main
-  h1 Welcome Back
+  div.row
+    div.col-sm-8
+      h1 Welcome Back
+    div.col-sm-4
+      div.panel class=panel-default
+        div.panel-heading
+          button class="btn btn-sm btn-default pull-right"
+            a href="/new/service" New Service
+          h5 Your services  
+        div.panel-body
+          {{if .Services}}
+          ul.list-group
+          {{range .Services}}
+            li.list-group-item
+              a href="/{{.Owner}}/{{.Name}}" {{.Name}}
+          {{end}}
+          {{else}}
+          div No services yet!
+          {{end}}

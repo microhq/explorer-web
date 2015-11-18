@@ -1,5 +1,18 @@
 = content title
   | Welcome
 = content main
+  div.jumbotron
+    h1 Welcome to <b>Micro</b> Services
+    h4 A place to share microservices built with <a href="https://myodc.github.io/micro">Micro</a>
   div
-    | Welcome to micro explorer. An place to share microservices.
+    h1 Explore
+    h4 Latest services
+  {{range .Services}}
+  div
+    hr
+    h3
+      a href=/{{.Owner}}/{{.Name}} {{.Name}}
+    div {{.Description}}
+    div
+      small Updated {{TimeAgo .Updated}}
+  {{end}}

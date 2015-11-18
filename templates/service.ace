@@ -1,7 +1,99 @@
 = content main
-  h1
-    a href="/{{.Service.Owner}}" {{.Service.Owner}} 
-    |  / 
-    a href="/{{.Service.Owner}}/{{.Service.Name}}" {{.Service.Name}}
-  h6
-    | {{.Service.Description}}
+  // left side column
+  div.row 
+    div.col-sm-7
+      h1
+        a href="/{{.Service.Owner}}" {{.Service.Owner}} 
+        |  / 
+        a href="/{{.Service.Owner}}/{{.Service.Name}}" {{.Service.Name}}
+      h4
+        | {{.Service.Description}}
+      h6
+        | Updated {{TimeAgo .Service.Updated}}
+      {{if .Service.Url}}
+      div
+        span class="glyphicon glyphicon-globe"
+        a href="{{.Service.Url}}" &nbsp;{{.Service.Url}}
+      {{end}}
+      {{if eq .Service.Owner .User}}
+      br
+      p
+        button class="btn btn-sm btn-default"
+          a href="/{{.Service.Owner}}/{{.Service.Name}}/edit" Edit
+      {{end}}
+
+
+    // right side column
+    div.col-sm-5
+      // sources
+      div.panel class=panel-default
+        div.panel-heading
+          {{if eq .Service.Owner .User}}
+          button class="btn btn-sm btn-default pull-right"
+            a href="/{{.Service.Owner}}/{{.Service.Name}}/version/{{.Version.Version}}/edit#sources" Edit
+          {{end}}
+          h5 Sources
+        div.panel-body
+          {{if .Version.Sources}}
+          ul.list-group
+          {{range .Version.Sources}}
+            li.list-group-item
+              {{.Name}}
+          {{end}}
+          {{else}}
+          div No sources available
+          {{end}}
+
+      // dependencies
+      div.panel class=panel-default
+        div.panel-heading
+          {{if eq .Service.Owner .User}}
+          button class="btn btn-sm btn-default pull-right"
+            a href="/{{.Service.Owner}}/{{.Service.Name}}/version/{{.Version.Version}}/edit#deps" Edit
+          {{end}}
+          h5 Dependencies
+        div.panel-body
+          {{if .Version.Dependencies}}
+          ul.list-group
+          {{range .Version.Dependencies}}
+            li.list-group-item
+              {{.Name}}
+          {{end}}
+          {{else}}
+          div No Dependencies
+          {{end}}
+
+  {{if .Service.Readme}}
+  div.row
+    div.col-sm-12
+      div.panel class=panel-default
+        div.panel-heading
+          h5 README.md
+        div.panel-body
+          {{if .Service.Readme}}
+          {{HTML .Readme}}
+          {{else}}
+          div No Readme
+          {{end}}
+  {{end}}
+
+  div.row
+    div.col-sm-12
+      // sources
+      div.panel class=panel-default
+        div.panel-heading
+          {{if eq .Service.Owner .User}}
+          button class="btn btn-sm btn-default pull-right"
+            a href="/{{.Service.Owner}}/{{.Service.Name}}/version/{{.Version.Version}}/edit#api" Edit
+          {{end}}
+          h5 API
+        div.panel-body
+          {{if .Version.Api}}
+          ul.list-group
+          {{range .Version.Api.Endpoints}}
+            li.list-group-item
+              {{.Name}}
+          {{end}}
+          {{else}}
+          div No Endpoints
+          {{end}}

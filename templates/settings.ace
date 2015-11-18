@@ -1,0 +1,6 @@
+div.col-sm-3
+  div.panel class="panel-default"
+    div.panel-heading Settings
+    ul.list-group
+      li.list-group-item
+        a href="/settings/profile" Profile

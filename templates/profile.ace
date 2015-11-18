@@ -4,9 +4,16 @@
       h1 {{.Profile.DisplayName}} <small>({{.Profile.Name}})</small>
       h4 {{.Profile.Blurb}}
     ul.list-inline.col-md-12
-      li Loc: {{.Profile.Location}} 
-      li Url:&nbsp; 
-        a href={{.Profile.Url}} {{.Profile.Url}}
+      li
+        {{if .Profile.Location}}
+        span class="glyphicon glyphicon-globe"
+        | &nbsp;{{.Profile.Location}} 
+        {{end}}
+      li
+        {{if .Profile.Url}}
+        span class="glyphicon glyphicon-link"
+        a href={{.Profile.Url}} &nbsp;{{.Profile.Url}}
+        {{end}}
 
   div.row
     div.col-md-12
@@ -16,6 +23,8 @@
     div.col-md-12
       h3
         a href=/{{.Owner}}/{{.Name}} {{.Name}}
-      {{.Description}}
+      div {{.Description}}
+      div
+        small Updated {{TimeAgo .Updated}}
       hr
   {{end}}

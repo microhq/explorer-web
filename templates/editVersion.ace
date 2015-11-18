@@ -1,0 +1,49 @@
+= content main
+  div.row
+    div.col-sm-offset-2 class="col-sm-8"
+      div.page-header
+        h3 Update your service
+          small
+            br Provide API, source and dependency information.
+  div.row
+    div.col-sm-offset-2 class="col-sm-8"
+      div.row
+        form
+          div.form-group class="col-sm-4"
+            label for="owner" Owner 
+            input.form-control type=text name=owner id=owner value={{.Service.Owner}} readonly=
+          div.form-group class="col-sm-8"
+            label for="name" Service Name
+            input.form-control type=text name=name id=name value={{.Service.Name}} readonly=
+          div.form-group class="col-sm-12"
+            label for="description" Description
+            input.form-control type=text name=description id=description value={{.Service.Description}} readonly=
+          div.form-group class="col-sm-12"
+            hr
+
+  div.row
+    div.col-sm-offset-2 class="col-sm-8"
+      div.row
+        form method=post
+          div.form-group class="col-sm-4"
+            label for="owner" Owner 
+            input.form-control type=text name=owner id=owner value={{.Service.Owner}} readonly=
+          div.form-group class="col-sm-8"
+            label for="name" Service Name
+            input.form-control type=text name=name id=name value={{.Service.Name}} readonly=
+
+          div.form-group class="col-sm-12"
+            label for="description" Description (optional)
+            input.form-control type=text name=description id=description value={{.Service.Description}}
+          div.form-group class="col-sm-12"
+            label for="website" Website (optional)
+            input.form-control type=text name=url id=url value={{.Service.Url}}
+          div.form-group class="col-sm-12"
+            label for="readme" README.md (optional)
+            textarea.form-control rows=10 name=readme id=readme
+              {{.Service.Readme}}
+          div.form-group class="col-sm-12"
+            hr
+          div.form-group class="col-sm-4"
+            p
+              button.btn.btn-default Update

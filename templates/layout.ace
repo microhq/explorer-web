@@ -17,21 +17,34 @@ html lang=en
             span.icon-bar
             span.icon-bar
             span.icon-bar
-          a.navbar-brand href=/ Explorer
+          a.navbar-brand href=/
+            b Micro&nbsp;
+            | Services
         div id="navbar" class="navbar-collapse collapse"
           form class="navbar-form navbar-left" role="search" method=post action=/search
             div.form-group
-              input.form-control name=q id=q placeholder=search
+              input.form-control type=text name=q id=q placeholder=search
+              | &nbsp;
             button class="btn btn-default" Go!
           div class="nav navbar-nav navbar-right"
             {{if .User}}
-            div.dropdown
+            div.dropdown class=btn-group
+              button class="btn btn-default dropdown-toggle navbar-btn" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true"
+                span class="glyphicon glyphicon-plus"
+                span.caret
+              ul.dropdown-menu aria-labelledby="dropdownMenu1"
+                li
+                  a href="/new/service" New service
+            | &nbsp;
+
+            div.dropdown class=btn-group
               button class="btn btn-default dropdown-toggle navbar-btn" type="button" id="dropdownMenu1" data-toggle="dropdown" aria-haspopup="true" aria-expanded="true"
                 | Logged In&nbsp;
                 span.caret
               ul.dropdown-menu aria-labelledby="dropdownMenu1"
                 li.dropdown-header
                   | Signed in as <b>{{.User}}</b>
+                li.divider role="separator"
                 li
                   a href="/{{.User}}" Your profile
                 li
@@ -42,12 +55,23 @@ html lang=en
             {{else}}
             button type=button class="btn btn-default navbar-btn"
               a href="/signup" Signup
+            | &nbsp;
             button type=button class="btn btn-default navbar-btn"
               a href="/login" Login
             {{end}}
 
     div.container
       = yield main
+
+  = javascript
+    function c() {
+      var r = window.confirm("Are you sure you?");
+      if (r == true) {
+        return true;
+      } else { 
+        return false;
+      };
+    };
   script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"
   script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js" integrity="sha512-K1qjQ+NcF2TYO/eI3M6v8EiNYZfA95pQumfvcVrTHtwQVDG+aHRqLi/ETn2uB+1JqwYqVG3LIvdm9lj6imS/pQ==" crossorigin="anonymous"
 

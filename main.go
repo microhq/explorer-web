@@ -1,21 +1,27 @@
 package main
 
 import (
+	"fmt"
+	"html/template"
 	"net/http"
 	"sync"
 	"time"
+
+	// for markdown
+	"github.com/microcosm-cc/bluemonday"
+	"github.com/russross/blackfriday"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
 	"github.com/yosssi/ace"
 	"golang.org/x/net/context"
 
-	uuid "github.com/streadway/simpleuuid"
-	"github.com/myodc/go-micro/cmd"
-	"github.com/myodc/go-micro/client"
-	srv "github.com/myodc/explorer-srv/proto/service"
 	prf "github.com/myodc/explorer-srv/proto/profile"
+	srv "github.com/myodc/explorer-srv/proto/service"
 	user "github.com/myodc/explorer-srv/proto/user"
+	"github.com/myodc/go-micro/client"
+	"github.com/myodc/go-micro/cmd"
+	uuid "github.com/streadway/simpleuuid"
 )
 
 const (
@@ -24,9 +30,9 @@ const (
 
 var (
 	templateDir = "templates"
-	opts *ace.Options
+	opts        *ace.Options
 
-	mtx sync.RWMutex
+	mtx        sync.RWMutex
 	sessionMap = map[*http.Request]*user.Session{}
 )
 
@@ -34,6 +40,52 @@ func init() {
 	opts = ace.InitializeOptions(nil)
 	opts.BaseDir = templateDir
 	opts.DynamicReload = true
+	opts.FuncMap = template.FuncMap{
+		"TimeAgo": func(t int64) string {
+			return timeAgo(t)
+		},
+	}
+}
+
+func timeAgo(t int64) string {
+	d := time.Unix(t, 0)
+	timeAgo := ""
+	startDate := time.Now().Unix()
+	deltaMinutes := float64(startDate-d.Unix()) / 60.0
+	if deltaMinutes <= 523440 { // less than 363 days
+		timeAgo = fmt.Sprintf("%s ago", distanceOfTime(deltaMinutes))
+	} else {
+		timeAgo = d.Format("2 Jan")
+	}
+
+	return timeAgo
+}
+
+func distanceOfTime(minutes float64) string {
+	switch {
+	case minutes < 1:
+		return fmt.Sprintf("%d secs", int(minutes*60))
+	case minutes < 59:
+		return fmt.Sprintf("%d minutes", int(minutes))
+	case minutes < 90:
+		return "about an hour"
+	case minutes < 120:
+		return "almost 2 hours"
+	case minutes < 1080:
+		return fmt.Sprintf("%d hours", int(minutes/60))
+	case minutes < 1680:
+		return "about a day"
+	case minutes < 2160:
+		return "more than a day"
+	case minutes < 2520:
+		return "almost 2 days"
+	case minutes < 2880:
+		return "about 2 days"
+	default:
+		return fmt.Sprintf("%d days", int(minutes/1440))
+	}
+
+	return ""
 }
 
 func getSession(w http.ResponseWriter, r *http.Request) *user.Session {
@@ -47,8 +99,8 @@ func getSession(w http.ResponseWriter, r *http.Request) *user.Session {
 	rsp := &user.ReadSessionResponse{}
 	if err := client.Call(context.Background(), req, rsp); err != nil {
 		http.SetCookie(w, sessions.NewCookie(sessionName, "deleted", &sessions.Options{
-			Path: "/",
-			MaxAge: -1,
+			Path:     "/",
+			MaxAge:   -1,
 			HttpOnly: true,
 		}))
 		return nil
@@ -97,8 +149,65 @@ func auth(fn, afn func(w http.ResponseWriter, r *http.Request)) func(w http.Resp
 	}
 }
 
+func deleteServiceHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	profile := vars["profile"]
+	service := vars["service"]
+
+	if len(profile) == 0 || len(service) == 0 {
+		notFoundHandler(w, r)
+		return
+	}
+
+	// get profile
+	preq := client.NewRequest("go.micro.srv.explorer", "Profile.Search", &prf.SearchRequest{
+		Name: profile,
+	})
+	prsp := &prf.SearchResponse{}
+	if err := client.Call(context.Background(), preq, prsp); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if prsp.Profiles == nil || len(prsp.Profiles) == 0 {
+		notFoundHandler(w, r)
+		return
+	}
+
+	// get service
+	req := client.NewRequest("go.micro.srv.explorer", "Service.Search", &srv.SearchRequest{
+		Name:  service,
+		Owner: profile,
+		Limit: 1,
+	})
+	rsp := &srv.SearchResponse{}
+	if err := client.Call(context.Background(), req, rsp); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	usrr := usr(r)
+
+	if len(rsp.Services) == 0 || usrr != rsp.Services[0].Owner {
+		notFoundHandler(w, r)
+		return
+	}
+
+	if r.Method == "POST" {
+		req := client.NewRequest("go.micro.srv.explorer", "Service.Delete", &srv.DeleteRequest{
+			Id: rsp.Services[0].Id,
+		})
+		rsp := &srv.DeleteResponse{}
+		if err := client.Call(context.Background(), req, rsp); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		http.Redirect(w, r, "/", 302)
+	}
+}
+
 func editProfileHandler(w http.ResponseWriter, r *http.Request) {
 	usrr := usr(r)
+
 	preq := client.NewRequest("go.micro.srv.explorer", "Profile.Search", &prf.SearchRequest{
 		Name: usrr,
 	})
@@ -118,8 +227,8 @@ func editProfileHandler(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if err := tpl.Execute(w, struct{
-			User string
+		if err := tpl.Execute(w, struct {
+			User    string
 			Profile *prf.Profile
 		}{usr(r), prsp.Profiles[0]}); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -145,25 +254,245 @@ func editProfileHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func editServiceHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	profile := vars["profile"]
+	service := vars["service"]
+
+	if len(profile) == 0 || len(service) == 0 {
+		notFoundHandler(w, r)
+		return
+	}
+
+	// get profile
+	preq := client.NewRequest("go.micro.srv.explorer", "Profile.Search", &prf.SearchRequest{
+		Name: profile,
+	})
+	prsp := &prf.SearchResponse{}
+	if err := client.Call(context.Background(), preq, prsp); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if prsp.Profiles == nil || len(prsp.Profiles) == 0 {
+		notFoundHandler(w, r)
+		return
+	}
+
+	// get service
+	req := client.NewRequest("go.micro.srv.explorer", "Service.Search", &srv.SearchRequest{
+		Name:  service,
+		Owner: profile,
+		Limit: 1,
+	})
+	rsp := &srv.SearchResponse{}
+	if err := client.Call(context.Background(), req, rsp); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	usrr := usr(r)
+
+	if len(rsp.Services) == 0 || usrr != rsp.Services[0].Owner {
+		notFoundHandler(w, r)
+		return
+	}
+
+	if r.Method == "GET" {
+		tpl, err := ace.Load("layout", "editService", opts)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if err := tpl.Execute(w, struct {
+			User    string
+			Service *srv.Service
+		}{usr(r), rsp.Services[0]}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else if r.Method == "POST" {
+		r.ParseForm()
+		owner := r.Form.Get("owner")
+		name := r.Form.Get("name")
+		desc := r.Form.Get("description")
+		url := r.Form.Get("url")
+		readme := r.Form.Get("readme")
+
+		// VALIDATE
+
+		req := client.NewRequest("go.micro.srv.explorer", "Service.Update", &srv.UpdateRequest{
+			Service: &srv.Service{
+				Id:          rsp.Services[0].Id,
+				Name:        name,
+				Owner:       owner,
+				Description: desc,
+				Url:         url,
+				Readme:      readme,
+			},
+		})
+		rsp := &srv.UpdateResponse{}
+		if err := client.Call(context.Background(), req, rsp); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		http.Redirect(w, r, fmt.Sprintf("/%s/%s", owner, name), 302)
+	}
+}
+
+func editVersionHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	profile := vars["profile"]
+	service := vars["service"]
+	version := vars["version"]
+
+	if len(profile) == 0 || len(service) == 0 || len(version) == 0 {
+		notFoundHandler(w, r)
+		return
+	}
+
+	// get profile
+	preq := client.NewRequest("go.micro.srv.explorer", "Profile.Search", &prf.SearchRequest{
+		Name: profile,
+	})
+	prsp := &prf.SearchResponse{}
+	if err := client.Call(context.Background(), preq, prsp); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if prsp.Profiles == nil || len(prsp.Profiles) == 0 {
+		notFoundHandler(w, r)
+		return
+	}
+
+	// get service
+	req := client.NewRequest("go.micro.srv.explorer", "Service.Search", &srv.SearchRequest{
+		Name:  service,
+		Owner: profile,
+		Limit: 1,
+	})
+	rsp := &srv.SearchResponse{}
+	if err := client.Call(context.Background(), req, rsp); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	usrr := usr(r)
+
+	if len(rsp.Services) == 0 || usrr != rsp.Services[0].Owner {
+		notFoundHandler(w, r)
+		return
+	}
+
+	vreq := client.NewRequest("go.micro.srv.explorer", "Service.SearchVersion", &srv.SearchVersionRequest{
+		ServiceId: rsp.Services[0].Id,
+		Version:   version,
+		Limit:     1,
+	})
+	vrsp := &srv.SearchVersionResponse{}
+	if err := client.Call(context.Background(), vreq, vrsp); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	if len(vrsp.Versions) == 0 {
+		notFoundHandler(w, r)
+		return
+	}
+
+	if r.Method == "GET" {
+		tpl, err := ace.Load("layout", "editVersion", opts)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if err := tpl.Execute(w, struct {
+			User    string
+			Service *srv.Service
+			Version *srv.Version
+		}{usr(r), rsp.Services[0], vrsp.Versions[0]}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else if r.Method == "POST" {
+		r.ParseForm()
+		/*
+			owner := r.Form.Get("owner")
+			name := r.Form.Get("name")
+			desc := r.Form.Get("description")
+			url := r.Form.Get("url")
+			readme := r.Form.Get("readme")
+		*/
+		// VALIDATE
+
+		req := client.NewRequest("go.micro.srv.explorer", "Service.UpdateVersion", &srv.UpdateVersionRequest{
+			Version: &srv.Version{
+				Id:           vrsp.Versions[0].Id,
+				ServiceId:    rsp.Services[0].Id,
+				Version:      vrsp.Versions[0].Version,
+				Api:          vrsp.Versions[0].Api,
+				Sources:      vrsp.Versions[0].Sources,
+				Dependencies: vrsp.Versions[0].Dependencies,
+				Metadata:     vrsp.Versions[0].Metadata,
+			},
+		})
+		rsp := &srv.UpdateVersionResponse{}
+		if err := client.Call(context.Background(), req, rsp); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		http.Redirect(w, r, fmt.Sprintf("/%s/%s/version/%s", profile, service, version), 302)
+	}
+	return
+}
+
 func homeHandler(w http.ResponseWriter, r *http.Request) {
+	usrr := usr(r)
+
+	req := client.NewRequest("go.micro.srv.explorer", "Service.Search", &srv.SearchRequest{
+		Owner: usrr,
+		Limit: 10,
+	})
+	rsp := &srv.SearchResponse{}
+	if err := client.Call(context.Background(), req, rsp); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	tpl, err := ace.Load("layout", "home", opts)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := tpl.Execute(w, map[string]string{"User": usr(r)}); err != nil {
+	if err := tpl.Execute(w, struct {
+		User     string
+		Services []*srv.Service
+	}{usrr, rsp.Services}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 }
 
 func indexHandler(w http.ResponseWriter, r *http.Request) {
+	req := client.NewRequest("go.micro.srv.explorer", "Service.Search", &srv.SearchRequest{
+		Limit: 10,
+	})
+	rsp := &srv.SearchResponse{}
+	if err := client.Call(context.Background(), req, rsp); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
 	tpl, err := ace.Load("layout", "index", opts)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := tpl.Execute(w, map[string]string{"User": usr(r)}); err != nil {
+	if err := tpl.Execute(w, struct {
+		User     string
+		Services []*srv.Service
+	}{usr(r), rsp.Services}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -186,7 +515,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 		// get username
 		// get password
 		// bcrypt(pass + salt) == stored
-		// if ok 
+		// if ok
 		// kv.Set("user:session"+user, session{time.Now()+7days})
 		// http.Redirect(w, r, "/", 302)
 		r.ParseForm()
@@ -206,8 +535,8 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		c := sessions.NewCookie(sessionName, rsp.Session.Id, &sessions.Options{
-			Path: "/",
-			MaxAge: int(time.Unix(rsp.Session.Expires, 0).Sub(time.Now()).Seconds()),
+			Path:     "/",
+			MaxAge:   int(time.Unix(rsp.Session.Expires, 0).Sub(time.Now()).Seconds()),
 			HttpOnly: true,
 		})
 		http.SetCookie(w, c)
@@ -218,8 +547,8 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	delSession(r)
 	http.SetCookie(w, sessions.NewCookie(sessionName, "deleted", &sessions.Options{
-		Path: "/",
-		MaxAge: -1,
+		Path:     "/",
+		MaxAge:   -1,
 		HttpOnly: true,
 	}))
 	http.Redirect(w, r, r.Referer(), 302)
@@ -238,14 +567,68 @@ func notFoundHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func newServiceHandler(w http.ResponseWriter, r *http.Request) {
-	tpl, err := ace.Load("layout", "newService", opts)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	if err := tpl.Execute(w, map[string]string{"User": usr(r)}); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if r.Method == "GET" {
+		tpl, err := ace.Load("layout", "newService", opts)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if err := tpl.Execute(w, map[string]string{"User": usr(r)}); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else if r.Method == "POST" {
+		r.ParseForm()
+		owner := r.Form.Get("owner")
+		name := r.Form.Get("name")
+		desc := r.Form.Get("description")
+		url := r.Form.Get("website")
+		readme := r.Form.Get("readme")
+
+		// VALIDATE
+
+		id, err := uuid.NewTime(time.Now())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		req := client.NewRequest("go.micro.srv.explorer", "Service.Create", &srv.CreateRequest{
+			Service: &srv.Service{
+				Id:          id.String(),
+				Name:        name,
+				Owner:       owner,
+				Description: desc,
+				Url:         url,
+				Readme:      readme,
+			},
+		})
+		rsp := &srv.CreateResponse{}
+		if err := client.Call(context.Background(), req, rsp); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		vid, err := uuid.NewTime(time.Now())
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		vreq := client.NewRequest("go.micro.srv.explorer", "Service.CreateVersion", &srv.CreateVersionRequest{
+			Version: &srv.Version{
+				Id:        vid.String(),
+				ServiceId: id.String(),
+				Version:   "default",
+			},
+		})
+		vrsp := &srv.CreateResponse{}
+		if err := client.Call(context.Background(), vreq, vrsp); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		http.Redirect(w, r, fmt.Sprintf("/%s/%s", owner, name), 302)
 	}
 }
 
@@ -288,9 +671,9 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := tpl.Execute(w, struct{
-		User string
-		Profile *prf.Profile
+	if err := tpl.Execute(w, struct {
+		User     string
+		Profile  *prf.Profile
 		Services []*srv.Service
 	}{usr(r), prsp.Profiles[0], rsp.Services}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -307,6 +690,11 @@ func serviceHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	profile := vars["profile"]
 	service := vars["service"]
+	version := vars["version"]
+
+	if len(version) == 0 {
+		version = "default"
+	}
 
 	if len(profile) == 0 || len(service) == 0 {
 		notFoundHandler(w, r)
@@ -328,7 +716,7 @@ func serviceHandler(w http.ResponseWriter, r *http.Request) {
 
 	// get service
 	req := client.NewRequest("go.micro.srv.explorer", "Service.Search", &srv.SearchRequest{
-		Name: service,
+		Name:  service,
 		Owner: profile,
 		Limit: 1,
 	})
@@ -342,15 +730,39 @@ func serviceHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	vreq := client.NewRequest("go.micro.srv.explorer", "Service.SearchVersion", &srv.SearchVersionRequest{
+		ServiceId: rsp.Services[0].Id,
+		Version:   version,
+		Limit:     1,
+	})
+	vrsp := &srv.SearchVersionResponse{}
+	if err := client.Call(context.Background(), vreq, vrsp); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	ver := &srv.Version{
+		Version: "default",
+	}
+	if len(vrsp.Versions) == 1 {
+		ver = vrsp.Versions[0]
+	}
+
 	tpl, err := ace.Load("layout", "service", opts)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err := tpl.Execute(w, struct{
-		User string
+
+	unsafe := blackfriday.MarkdownCommon([]byte(rsp.Services[0].Readme))
+	readme := bluemonday.UGCPolicy().SanitizeBytes(unsafe)
+
+	if err := tpl.Execute(w, struct {
+		User    string
+		Readme  string
 		Service *srv.Service
-	}{usr(r), rsp.Services[0]}); err != nil {
+		Version *srv.Version
+	}{usr(r), string(readme), rsp.Services[0], ver}); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -426,9 +838,9 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		// create user
 		req := client.NewRequest("go.micro.srv.explorer", "User.Create", &user.CreateRequest{
 			User: &user.User{
-				Id: id.String(),
+				Id:       id.String(),
 				Username: username,
-				Email: email,
+				Email:    email,
 			},
 			Password: password,
 		})
@@ -440,8 +852,8 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 
 		preq := client.NewRequest("go.micro.srv.explorer", "Profile.Create", &prf.CreateRequest{
 			Profile: &prf.Profile{
-				Id: id.String(),
-				Name: username,
+				Id:    id.String(),
+				Name:  username,
 				Owner: username,
 			},
 		})
@@ -455,7 +867,7 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		// login
 		ureq := client.NewRequest("go.micro.srv.explorer", "User.Login", &user.LoginRequest{
 			Username: username,
-			Email: email,
+			Email:    email,
 			Password: password,
 		})
 		ursp := &user.LoginResponse{}
@@ -464,8 +876,8 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		c := sessions.NewCookie("X-Micro-Session", ursp.Session.Id, &sessions.Options{
-			Path: "/",
-			MaxAge: int(time.Unix(ursp.Session.Expires, 0).Sub(time.Now()).Seconds()),
+			Path:     "/",
+			MaxAge:   int(time.Unix(ursp.Session.Expires, 0).Sub(time.Now()).Seconds()),
 			HttpOnly: true,
 		})
 		http.SetCookie(w, c)
@@ -482,9 +894,11 @@ func main() {
 	r.HandleFunc("/", auth(homeHandler, indexHandler))
 
 	// search
+	// add elasticsearch
 	r.HandleFunc("/search", auth(searchHandler, searchHandler))
 
 	// auth
+	// add an invite system and block actual signups
 	r.HandleFunc("/login", auth(redirectHandler, loginHandler))
 	r.HandleFunc("/logout", auth(logoutHandler, redirectHandler))
 	r.HandleFunc("/signup", auth(redirectHandler, signupHandler))
@@ -495,9 +909,18 @@ func main() {
 	// create things
 	r.HandleFunc("/new/service", auth(newServiceHandler, notFoundHandler))
 
-	// display things
+	// For paying customers
+	//r.HandleFunc("/new/version", auth(newServiceHandler, notFoundHandler))
+
+	// do/display things
 	r.HandleFunc("/{profile}", auth(profileHandler, profileHandler))
 	r.HandleFunc("/{profile}/{service}", auth(serviceHandler, serviceHandler))
+	r.HandleFunc("/{profile}/{service}/edit", auth(editServiceHandler, notFoundHandler))
+	r.HandleFunc("/{profile}/{service}/delete", auth(deleteServiceHandler, notFoundHandler))
+	r.HandleFunc("/{profile}/{service}/version/{version}", auth(serviceHandler, serviceHandler))
+
+	// only allow editing of "default" for free users
+	r.HandleFunc("/{profile}/{service}/version/{version}/edit", auth(editVersionHandler, notFoundHandler))
 
 	r.NotFoundHandler = http.HandlerFunc(auth(notFoundHandler, notFoundHandler))
 

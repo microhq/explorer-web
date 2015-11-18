@@ -1,0 +1,47 @@
+= content main
+  div.row
+    div.col-sm-offset-2 class="col-sm-8"
+      div.page-header
+        h3 Update your service
+          small
+            br A service provides a description of the API, source and dependencies.
+  div.row
+    div.col-sm-offset-2 class="col-sm-8"
+      div.row
+        form method=post
+          div.form-group class="col-sm-4"
+            label for="owner" Owner 
+            input.form-control type=text name=owner id=owner value={{.Service.Owner}} readonly=
+          div.form-group class="col-sm-8"
+            label for="name" Service Name
+            input.form-control type=text name=name id=name value={{.Service.Name}} readonly=
+          div.form-group class="col-sm-12"
+            label for="description" Description (optional)
+            input.form-control type=text name=description id=description value={{.Service.Description}}
+          div.form-group class="col-sm-12"
+            label for="website" Website (optional)
+            input.form-control type=text name=url id=url value={{.Service.Url}}
+          div.form-group class="col-sm-12"
+            label for="readme" README.md (optional)
+            textarea.form-control rows=10 name=readme id=readme
+              {{.Service.Readme}}
+          div.form-group class="col-sm-12"
+            hr
+          div.form-group class="col-sm-4"
+            p
+              button.btn.btn-default Update
+  div.row
+    div.col-sm-offset-2 class="col-sm-8"
+      div.panel class="panel-danger"
+        div.panel-heading
+          h3.panel-title Danger Zone
+        ul.list-group
+          li.list-group-item
+            form.pull-right.form-inline action="/{{.Service.Owner}}/{{.Service.Name}}/delete" method=post
+              input type=hidden id=owner name=owner value={{.Service.Owner}}
+              input type=hidden id=name name=name value={{.Service.Name}}
+              button onclick="return c();" class="btn btn-danger"
+                | Delete Service
+            h4 Delete this service
+            span This operation is unrecoverable
+

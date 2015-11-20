@@ -1,0 +1,58 @@
+div.panel.panel-default
+  div.panel-heading Sources
+
+  div.panel-body.group
+
+    {{range $i, $src := .}}
+    div.row.item
+      div.form-group.col-sm-4
+        label for="name" Type
+        select.form-control id=source[{{$i}}]type name=source[{{$i}}]type
+          | <option value=code {{if eq $src.Type "code"}}selected{{end}}>Source Code</option>
+          | <option value=docker {{if eq $src.Type "docker"}}selected{{end}}>Docker Image</option>
+          | <option value=tar {{if eq $src.Type "tar"}}selected{{end}}>Tarball</option>
+          | <option value=zip {{if eq $src.Type "zip"}}selected{{end}}>Zip</option>
+      div.form-group.col-sm-6
+        label for="name" Name
+        input.form-control type=text name=source[{{$i}}]name id=source[{{$i}}]name value={{$src.Name}}
+      div.form-group.col-sm-2
+        label for="name" Remove
+        br
+        button.btn.btn-danger.btn-remove
+          span class="glyphicon glyphicon-remove"
+      div.form-group.col-sm-10
+        label for="name" Source
+        input.form-control type=text name=source[{{$i}}]source id=source[{{$i}}]source value={{index $src.Metadata "source"}}
+      div.form-group.col-sm-10
+        label for="info" Info
+        textarea.form-control type=text name=source[{{$i}}]info id=source[{{$i}}]info
+          {{index $src.Metadata "info"}}
+    {{end}}
+
+    // Source Info
+    div.row.new.item style="display: none;"
+      div.form-group.col-sm-4
+        label for="name" Type
+        select.form-control id=source[]type name=source[]type
+          option value=code Source Code
+          option value=docker Docker Image
+          option value=tar Tarball
+          option value=zip Zip
+      div.form-group.col-sm-6
+        label for="name" Name
+        input.form-control type=text name=source[]name id=source[]name
+      div.form-group.col-sm-2.add
+        label for="name" Remove
+        br
+        button.btn.btn-danger.btn-remove
+          span class="glyphicon glyphicon-remove"
+      div.form-group.col-sm-10
+        label for="loc" Source
+        input.form-control type=text name=source[]source id=source[]source
+      div.form-group.col-sm-10
+        label for="info" Info
+        textarea.form-control type=text name=source[]info id=source[]info
+
+    div.add
+      button.btn.btn-default.btn-add Add Source
+

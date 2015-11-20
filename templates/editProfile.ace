@@ -1,7 +1,7 @@
 = content main
   div.row
   
-    = include settings
+    = include _settings
 
     div.col-sm-9
       div.panel class="panel-default"

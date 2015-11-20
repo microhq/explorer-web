@@ -1,0 +1,53 @@
+div.panel.panel-default
+  div.panel-heading Dependencies
+
+  div.panel-body.group
+
+    {{range $i, $dep := .}}
+
+    div.row.item
+      div.form-group.col-sm-4
+        label for="name" Type
+        select.form-control id=dep[{{$i}}]type name=dep[{{$i}}]type
+          | <option value=docker {{if eq $dep.Type "docker"}}selected{{end}}>Docker Container</option>
+          | <option value=service {{if eq $dep.Type "service"}}selected{{end}}>Micro Service</option>
+      div.form-group.col-sm-6
+        label for="name" Name
+        input.form-control type=text name=dep[{{$i}}]name id=dep[{{$i}}]name value={{$dep.Name}}
+      div.form-group.col-sm-2.add
+        label for="name" Remove
+        br
+        button.btn.btn-danger.btn-remove
+          span class="glyphicon glyphicon-remove"
+      div.form-group.col-sm-10
+        label for="name" Source
+        input.form-control type=text name=dep[{{$i}}]source id=dep[{{$i}}]source value={{index $dep.Metadata "source"}}
+      div.form-group.col-sm-10
+        label for="name" Info
+        textarea.form-control type=text name=dep[{{$i}}]info id=dep[{{$i}}]info
+          {{index $dep.Metadata "source"}}
+    {{end}}
+
+    div.row.new.item style="display: none;"
+      div.form-group.col-sm-4
+        label for="name" Type
+        select.form-control id=dep[]type name=dep[]type
+          option value=docker Docker Container
+          option value=service Micro Service
+      div.form-group.col-sm-6
+        label for="name" Name
+        input.form-control type=text name=dep[]name id=dep[]name
+      div.form-group.col-sm-2.add
+        label for="name" Remove
+        br
+        button.btn.btn-danger.btn-remove
+          span class="glyphicon glyphicon-remove"
+      div.form-group.col-sm-10
+        label for="name" Source
+        input.form-control type=text name=dep[]source id=dep[]source
+      div.form-group.col-sm-10
+        label for="name" Info
+        textarea.form-control type=text name=dep[]info id=dep[]info
+
+    div.add
+      button.btn.btn-default.btn-add Add Dependency

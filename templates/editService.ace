@@ -2,6 +2,8 @@
   div.row
     div.col-sm-offset-2 class="col-sm-8"
       div.page-header
+        button.btn.btn-default.pull-right
+          a href="/{{.Service.Owner}}/{{.Service.Name}}" Back
         h3 Update your service
           small
             br A service provides a description of the API, source and dependencies.
@@ -45,3 +47,13 @@
             h4 Delete this service
             span This operation is unrecoverable
 
+= content js
+  = javascript
+    function c() {
+      var r = window.confirm("Are you sure you?");
+      if (r == true) {
+        return true;
+      } else {
+        return false;
+      };
+    };

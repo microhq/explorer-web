@@ -1,0 +1,22 @@
+= content main
+  div.row
+  
+    = include _settings
+
+    div.col-sm-9
+      div.panel class="panel-default"
+        div.panel-heading Update Password
+        div.panel-body
+          form.row method=post action=/settings/account/password
+            div.col-sm-6
+              div.form-group
+                label for="pass" class="control-label" Old Password
+                input.form-control type=password name=pass id=pass
+              div.form-group
+                label for="new_pass" class="control-label" New Password
+                input.form-control type=password name=new_pass id=new_pass
+              div.form-group
+                label for="confirm_pass" class="control-label" Confirm New Password
+                input.form-control type=password name=confirm_pass id=confirm_pass
+              div.form-group
+                button.btn.btn-default Update

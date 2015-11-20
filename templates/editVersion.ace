@@ -2,48 +2,71 @@
   div.row
     div.col-sm-offset-2 class="col-sm-8"
       div.page-header
+        button.btn.btn-default.pull-right
+          a href="/{{.Service.Owner}}/{{.Service.Name}}" Back
         h3 Update your service
           small
             br Provide API, source and dependency information.
   div.row
     div.col-sm-offset-2 class="col-sm-8"
-      div.row
-        form
-          div.form-group class="col-sm-4"
-            label for="owner" Owner 
-            input.form-control type=text name=owner id=owner value={{.Service.Owner}} readonly=
-          div.form-group class="col-sm-8"
-            label for="name" Service Name
-            input.form-control type=text name=name id=name value={{.Service.Name}} readonly=
-          div.form-group class="col-sm-12"
-            label for="description" Description
-            input.form-control type=text name=description id=description value={{.Service.Description}} readonly=
-          div.form-group class="col-sm-12"
-            hr
+      div.row 
+        div.form-group class="col-sm-4"
+          label for="owner" Owner 
+          input.form-control type=text name=owner id=owner value={{.Service.Owner}} readonly=
+        div.form-group class="col-sm-8"
+          label for="name" Service Name
+          input.form-control type=text name=name id=name value={{.Service.Name}} readonly=
+        div.form-group.col-sm-12
+          label for="description" Description
+          input.form-control type=text name=description id=description value={{.Service.Description}} readonly=
+        div.form-group.col-sm-12
+          hr
 
   div.row
-    div.col-sm-offset-2 class="col-sm-8"
-      div.row
-        form method=post
-          div.form-group class="col-sm-4"
-            label for="owner" Owner 
-            input.form-control type=text name=owner id=owner value={{.Service.Owner}} readonly=
-          div.form-group class="col-sm-8"
-            label for="name" Service Name
-            input.form-control type=text name=name id=name value={{.Service.Name}} readonly=
+    form method=post
+      div.col-sm-offset-2 class="col-sm-8"
+        = include _editSource .Version.Sources
+        = include _editDeps .Version.Dependencies
+        = include _editApi .Version.Api
 
-          div.form-group class="col-sm-12"
-            label for="description" Description (optional)
-            input.form-control type=text name=description id=description value={{.Service.Description}}
-          div.form-group class="col-sm-12"
-            label for="website" Website (optional)
-            input.form-control type=text name=url id=url value={{.Service.Url}}
-          div.form-group class="col-sm-12"
-            label for="readme" README.md (optional)
-            textarea.form-control rows=10 name=readme id=readme
-              {{.Service.Readme}}
-          div.form-group class="col-sm-12"
-            hr
-          div.form-group class="col-sm-4"
-            p
-              button.btn.btn-default Update
+      div.col-sm-offset-2.col-sm-8
+        hr
+        p
+          button.btn.btn-default Update
+
+= content js
+  = javascript
+    $(function() {
+      $(document).on('click', '.btn-add', function(e) {
+        e.preventDefault();
+        var group = $(this).closest('.group'),
+          items = group.find('.item'),
+            newItem = group.find('.new').clone(),
+              btn = $(this).parent(),
+                i = items.length - 1;
+
+        btn.before(newItem);
+
+        newItem.find('input').each(function() {
+          var n = this.name.split('[]');
+          this.name = n.join('['+i+']');
+          this.id = n.join('['+i+']');
+        });
+        newItem.find('textarea').each(function() {
+          var n = this.name.split('[]');
+          this.name = n.join('['+i+']');
+          this.id = n.join('['+i+']');
+        });
+        newItem.find('select').each(function() {
+          var n = this.name.split('[]');
+          this.name = n.join('['+i+']');
+          this.id = n.join('['+i+']');
+        });
+        newItem.show();
+        newItem.removeClass('new');
+      }).on('click', '.btn-remove', function(e) {
+        $(this).closest('.item').remove();
+        e.preventDefault();
+        return false;
+      });
+    });

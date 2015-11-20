@@ -1,7 +1,7 @@
 = content main
   // left side column
   div.row 
-    div.col-sm-7
+    div.col-sm-8
       h1
         a href="/{{.Service.Owner}}" {{.Service.Owner}} 
         |  / 
@@ -10,58 +10,26 @@
         | {{.Service.Description}}
       h6
         | Updated {{TimeAgo .Service.Updated}}
-      {{if .Service.Url}}
-      div
-        span class="glyphicon glyphicon-globe"
-        a href="{{.Service.Url}}" &nbsp;{{.Service.Url}}
-      {{end}}
+
       {{if eq .Service.Owner .User}}
-      br
-      p
-        button class="btn btn-sm btn-default"
-          a href="/{{.Service.Owner}}/{{.Service.Name}}/edit" Edit
+        p
+          button class="btn btn-sm btn-default"
+            a href="/{{.Service.Owner}}/{{.Service.Name}}/edit" Edit
       {{end}}
 
-
-    // right side column
-    div.col-sm-5
-      // sources
-      div.panel class=panel-default
+    div.col-sm-4
+      p
+      br
+      div.panel.panel-default
         div.panel-heading
-          {{if eq .Service.Owner .User}}
-          button class="btn btn-sm btn-default pull-right"
-            a href="/{{.Service.Owner}}/{{.Service.Name}}/version/{{.Version.Version}}/edit#sources" Edit
-          {{end}}
-          h5 Sources
-        div.panel-body
-          {{if .Version.Sources}}
-          ul.list-group
-          {{range .Version.Sources}}
-            li.list-group-item
-              {{.Name}}
-          {{end}}
-          {{else}}
-          div No sources available
-          {{end}}
+          | &nbsp;
+        ul.list-group
+        {{if .Service.Url}}
+          li.list-group-item
+            span class="glyphicon glyphicon-globe"
+            a href="{{.Service.Url}}" &nbsp;{{.Service.Url}}
+        {{end}}
 
-      // dependencies
-      div.panel class=panel-default
-        div.panel-heading
-          {{if eq .Service.Owner .User}}
-          button class="btn btn-sm btn-default pull-right"
-            a href="/{{.Service.Owner}}/{{.Service.Name}}/version/{{.Version.Version}}/edit#deps" Edit
-          {{end}}
-          h5 Dependencies
-        div.panel-body
-          {{if .Version.Dependencies}}
-          ul.list-group
-          {{range .Version.Dependencies}}
-            li.list-group-item
-              {{.Name}}
-          {{end}}
-          {{else}}
-          div No Dependencies
-          {{end}}
 
   {{if .Service.Readme}}
   div.row
@@ -87,13 +55,115 @@
             a href="/{{.Service.Owner}}/{{.Service.Name}}/version/{{.Version.Version}}/edit#api" Edit
           {{end}}
           h5 API
+
+        {{if .Version.Api}}
         div.panel-body
-          {{if .Version.Api}}
-          ul.list-group
-          {{range .Version.Api.Endpoints}}
-            li.list-group-item
-              {{.Name}}
+          p {{index .Version.Api.Metadata "description"}}
+
+          {{if index .Version.Api.Metadata "info"}}
+          pre.well {{index .Version.Api.Metadata "info"}}
           {{end}}
+
+          h5 Endpoints
+
+          {{range $i, $ep := .Version.Api.Endpoints}}
+          div.panel.panel-info
+            div.panel-heading data-toggle="collapse" href="#collapseEp{{$i}}" aria-expanded="false" aria-controls="collapseEp{{$i}}" style="cursor:pointer;"
+              b {{$ep.Name}}
+            div.panel-body.collapse id="collapseEp{{$i}}"
+              h5 Request
+              pre.well
+                {{index $ep.Request "any"}}
+              h5 Response
+              pre.well
+                {{index $ep.Response "any"}}
+          {{end}}
+
+        {{else}}
+        ul.list-group
+          li.list-group-item No Endpoints
+        {{end}}
+
+  div.row
+    // right side column
+    div.col-sm-6
+      // sources
+      div.panel class=panel-default
+        div.panel-heading
+          {{if eq .Service.Owner .User}}
+          button class="btn btn-sm btn-default pull-right"
+            a href="/{{.Service.Owner}}/{{.Service.Name}}/version/{{.Version.Version}}/edit#sources" Edit
+          {{end}}
+          h5 Sources
+        div.panel-body
+          {{if .Version.Sources}}
+
+          {{range $i, $src := .Version.Sources}}
+          div.panel.panel-info
+            div.panel-heading data-toggle="collapse" href="#collapseSrc{{$i}}" aria-expanded="false" aria-controls="collapseSrc{{$i}}" style="cursor:pointer;"
+              b {{$src.Name}}
+              b.pull-right
+                {{$src.Type}}
+            div.panel-body.collapse id="collapseSrc{{$i}}"
+              {{if $src.Type}}
+              dl
+                dt Type
+                dd {{$src.Type}}
+              {{end}}
+              {{if index $src.Metadata "source"}}
+              dl
+                dt Source
+                dd {{index $src.Metadata "source"}}
+              {{end}}
+              {{if index $src.Metadata "info"}}
+              dl
+                dt Info
+                dd  {{index $src.Metadata "info"}}
+              {{end}}
+          {{end}}
+
           {{else}}
-          div No Endpoints
+          ul.list-group
+            No sources available
           {{end}}
+
+    div.col-sm-6
+      // dependencies
+      div.panel class=panel-default
+        div.panel-heading
+          {{if eq .Service.Owner .User}}
+          button class="btn btn-sm btn-default pull-right"
+            a href="/{{.Service.Owner}}/{{.Service.Name}}/version/{{.Version.Version}}/edit#deps" Edit
+          {{end}}
+          h5 Dependencies
+        div.panel-body
+          {{if .Version.Dependencies}}
+          {{range $i, $dep := .Version.Dependencies}}
+          div.panel.panel-info
+            div.panel-heading data-toggle="collapse" href="#collapseDep{{$i}}" aria-expanded="false" aria-controls="collapseDep{{$i}}" style="cursor:pointer;"
+              b {{$dep.Name}}
+              b.pull-right
+                | {{$dep.Type}}
+            div.panel-body.collapse id="collapseDep{{$i}}"
+              {{if $dep.Type}}
+              dl
+                dt Type
+                dd {{$dep.Type}}
+              {{end}}
+              {{if index $dep.Metadata "source"}}
+              dl
+                dt Source
+                dd {{index $dep.Metadata "source"}}
+              {{end}}
+              {{if index $dep.Metadata "info"}}
+              dl
+                dt Info
+                dd {{index $dep.Metadata "info"}}
+              {{end}}
+          {{end}}
+
+          {{else}}
+          ul.list-group
+            No Dependencies
+          {{end}}
+

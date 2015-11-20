@@ -4,3 +4,5 @@ div.col-sm-3
     ul.list-group
       li.list-group-item
         a href="/settings/profile" Profile
+      li.list-group-item
+        a href="/settings/account" Account

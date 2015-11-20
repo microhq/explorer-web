@@ -1,0 +1,56 @@
+div.panel.panel-default
+  div.panel-heading API
+  div.panel-body.group
+    div.form-group
+      label for="description" Description
+      textarea.form-control type=text name=api_description id=api_description
+        {{if .}}{{index .Metadata "description"}}{{end}}
+    div.form-group
+      label for="api" API {proto, json} - <small>drop in api or add endpoints below</small>
+      textarea.form-control rows=10 type=text name=api_info id=api_info
+        {{if .}}{{index .Metadata "info"}}{{end}}
+    hr
+    h4 Endpoints
+    p
+    {{if .}}
+    {{range $i, $ep := .Endpoints}}
+    div.row.item
+      div.form-group.col-sm-6
+        label for="name" Name
+        input.form-control type=text name=endpoint[{{$i}}]name id=endpoint[{{$i}}]name value={{$ep.Name}}
+      div.form-group.col-sm-2
+        label for="name" Remove
+        br
+        button.btn.btn-danger.btn-remove
+          span class="glyphicon glyphicon-remove"
+      div.form-group.col-sm-12
+        label for="request" Request
+        textarea.form-control rows=5 type=text name=endpoint[{{$i}}]request id=endpoint[{{$i}}]request
+          {{index $ep.Request "any"}}
+      div.form-group.col-sm-12
+        label for="response" Response
+        textarea.form-control rows=5 type=text name=endpoint[{{$i}}]response id=endpoint[{{$i}}]response
+          {{index $ep.Response "any"}}
+    {{end}}
+    {{end}}
+
+    div.row.new.item style="display: none;"
+      div.form-group.col-sm-6
+        label for="name" Name
+        input.form-control type=text name=endpoint[]name id=endpoint[]name
+      div.form-group.col-sm-2
+        label for="name" Remove
+        br
+        button.btn.btn-danger.btn-remove
+          span class="glyphicon glyphicon-remove"
+      div.form-group.col-sm-12
+        label for="request" Request
+        textarea.form-control rows=5 type=text name=endpoint[]request id=endpoint[]request
+      div.form-group.col-sm-12
+        label for="response" Response
+        textarea.form-control rows=5 type=text name=endpoint[]response id=endpoint[]response
+
+    div.add
+      p
+      button.btn.btn-default.btn-add Add Endpoint
+

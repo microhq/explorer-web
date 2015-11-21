@@ -27,7 +27,7 @@
         ul.list-group
         {{if .Service.Url}}
           li.list-group-item
-            span class="glyphicon glyphicon-globe"
+            span style="display:inline;" class="glyphicon glyphicon-globe"
             a href="{{.Service.Url}}" &nbsp;{{.Service.Url}}
         {{end}}
     {{end}}

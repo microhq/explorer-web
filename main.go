@@ -311,6 +311,7 @@ func deleteServiceHandler(w http.ResponseWriter, r *http.Request) {
 	// get profile
 	preq := client.NewRequest("go.micro.srv.explorer", "Profile.Search", &prf.SearchRequest{
 		Name: profile,
+		Limit: 1,
 	})
 	prsp := &prf.SearchResponse{}
 	if err := client.Call(context.Background(), preq, prsp); err != nil {
@@ -373,6 +374,7 @@ func editProfileHandler(w http.ResponseWriter, r *http.Request) {
 
 	preq := client.NewRequest("go.micro.srv.explorer", "Profile.Search", &prf.SearchRequest{
 		Name: usrr,
+		Limit: 1,
 	})
 	prsp := &prf.SearchResponse{}
 	if err := client.Call(context.Background(), preq, prsp); err != nil {
@@ -428,6 +430,7 @@ func editAccountHandler(w http.ResponseWriter, r *http.Request) {
 
 	preq := client.NewRequest("go.micro.srv.explorer", "Profile.Search", &prf.SearchRequest{
 		Name: usrr,
+		Limit: 1,
 	})
 	prsp := &prf.SearchResponse{}
 	if err := client.Call(context.Background(), preq, prsp); err != nil {
@@ -470,6 +473,7 @@ func editServiceHandler(w http.ResponseWriter, r *http.Request) {
 	// get profile
 	preq := client.NewRequest("go.micro.srv.explorer", "Profile.Search", &prf.SearchRequest{
 		Name: profile,
+		Limit: 1,
 	})
 	prsp := &prf.SearchResponse{}
 	if err := client.Call(context.Background(), preq, prsp); err != nil {
@@ -581,6 +585,7 @@ func editVersionHandler(w http.ResponseWriter, r *http.Request) {
 	// get profile
 	preq := client.NewRequest("go.micro.srv.explorer", "Profile.Search", &prf.SearchRequest{
 		Name: profile,
+		Limit: 1,
 	})
 	prsp := &prf.SearchResponse{}
 	if err := client.Call(context.Background(), preq, prsp); err != nil {
@@ -1033,6 +1038,7 @@ func profileHandler(w http.ResponseWriter, r *http.Request) {
 	// get profile
 	preq := client.NewRequest("go.micro.srv.explorer", "Profile.Search", &prf.SearchRequest{
 		Name: profile,
+		Limit: 1,
 	})
 	prsp := &prf.SearchResponse{}
 	if err := client.Call(context.Background(), preq, prsp); err != nil {
@@ -1097,6 +1103,7 @@ func serviceHandler(w http.ResponseWriter, r *http.Request) {
 	// get profile
 	preq := client.NewRequest("go.micro.srv.explorer", "Profile.Search", &prf.SearchRequest{
 		Name: profile,
+		Limit: 1,
 	})
 	prsp := &prf.SearchResponse{}
 	if err := client.Call(context.Background(), preq, prsp); err != nil {
@@ -1280,7 +1287,7 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		treq := client.NewRequest("go.micro.srv.explorer", "Token.Search", &token.SearchRequest{
 			Namespace: "invite",
 			Name:      invite,
-			Limit:     0,
+			Limit:     1,
 		})
 		trsp := &token.SearchResponse{}
 		if err := client.Call(context.Background(), treq, trsp); err != nil {
@@ -1367,6 +1374,7 @@ func updatePasswordHandler(w http.ResponseWriter, r *http.Request) {
 
 		preq := client.NewRequest("go.micro.srv.explorer", "User.Search", &user.SearchRequest{
 			Username: usrr,
+			Limit: 1,
 		})
 		prsp := &user.SearchResponse{}
 		if err := client.Call(context.Background(), preq, prsp); err != nil {

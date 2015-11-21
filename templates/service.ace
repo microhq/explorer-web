@@ -17,6 +17,7 @@
             a href="/{{.Service.Owner}}/{{.Service.Name}}/edit" Edit
       {{end}}
 
+    {{if .Service.Url}}
     div.col-sm-4
       p
       br
@@ -29,7 +30,7 @@
             span class="glyphicon glyphicon-globe"
             a href="{{.Service.Url}}" &nbsp;{{.Service.Url}}
         {{end}}
-
+    {{end}}
 
   {{if .Service.Readme}}
   div.row

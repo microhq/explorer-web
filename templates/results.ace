@@ -1,4 +1,25 @@
 = content main
-  {{range .results}}
-    .Name
+  div.row
+    div.col-sm-12
+      h1 Search Results
+
+  {{range .Results}}
+  div.row
+    div.col-md-12
+      h3
+        a href=/{{.owner}}/{{.name}} {{.owner}}/{{.name}}
+      div {{.description}}
+      div
+        small Updated {{TimeAgoIF .updated}}
+      hr
+  {{end}}
+
+  {{if .Pager}}
+  nav
+    ul.pager
+      li.pull-left
+        a href={{.Pager.Prev}} previous
+      li.pull-right
+        a href={{.Pager.Next}} next
+
   {{end}}

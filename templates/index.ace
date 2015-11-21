@@ -2,8 +2,9 @@
   | Welcome
 = content main
   div.jumbotron
-    h1 Welcome to <b>Micro</b> Services
-    h4 A place to share microservices built with <a href="https://myodc.github.io/micro">Micro</a>
+    center
+      h1 Welcome to <b>[Micro] </b>Services
+      h4 A place to share microservices built with <a href="https://micro.github.io/micro/">Micro</a>
   div
     h1 Explore
     h4 Latest services

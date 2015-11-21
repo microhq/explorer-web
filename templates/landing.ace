@@ -1,0 +1,62 @@
+= doctype html
+html lang=en
+  head
+    meta charset=utf-8
+    meta http-equiv="X-UA-Compatible" content="IE=edge"
+    meta name="viewport" content="width=device-width, initial-scale=1"
+    title
+      | [Micro] Services - Welcome
+      = yield title
+    link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" integrity="sha512-dTfge/zgoMYpP7QbHy4gWMEGsbsdZeCXz7irItjcC3sPUFtf0kuFbDz/ixG7ArTxmDjLXDmezHubeNikyKGVyQ==" crossorigin="anonymous"
+  body
+    div.container
+      p
+      div.jumbotron
+        center
+          h1 <b>[Micro] </b>Services
+          h4 A place to share microservices built with <a href="https://micro.github.io/micro/">Micro</a>
+          h6 We're invite only at the moment.
+
+      div.row
+        = include _alert .Alert
+        div.col-sm-4.col-sm-offset-2
+          div.panel.panel-default
+            div.panel-heading
+              | <b>Signup</b>
+            div.panel-body
+              form method=post action=/signup
+                div.form-group
+                  label for="username" class="control-label" Username
+                  input.form-control type=text name=username id=username
+                div.form-group
+                  label for="email" class="control-label" Email Address
+                  input.form-control type=text name=email id=email
+                div.form-group
+                  label for="password" class="control-label" Password
+                  input.form-control type=password name=password id=password
+                div
+                  div.panel.panel-default
+                    div.panel-heading
+                      center <b>Invite Token</b>
+                    div.panel-body
+                      input.form-control type=text name=token id=token
+                div.row.col-sm-12
+                  button.btn.btn-default signup
+
+        div.col-sm-4
+          div.panel.panel-default
+            div.panel-heading
+              | <b>Login</b>
+            div.panel-body
+              form method=post action=/login
+                div.form-group
+                  label for="username" class="control-label" Username
+                  input.form-control type=text name=username id=username
+                div.form-group
+                  label for="password" class="control-label" Password
+                  input.form-control type=password name=password id=password
+                div
+                  button.btn.btn-default login
+
+  script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"
+  script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js" integrity="sha512-K1qjQ+NcF2TYO/eI3M6v8EiNYZfA95pQumfvcVrTHtwQVDG+aHRqLi/ETn2uB+1JqwYqVG3LIvdm9lj6imS/pQ==" crossorigin="anonymous"

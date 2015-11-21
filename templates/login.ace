@@ -1,16 +1,19 @@
 = content main
-  div.col-sm-offset-4
-    div.col-sm-offset-2
-      h3 Login
-    form.form-horizontal method=post
-      div.form-group
-        label for="username" class="col-sm-2 control-label" Username
-        div.col-sm-4
-          input.form-control type=text name=username id=username placeholder=username
-      div.form-group
-        label for="password" class="col-sm-2 control-label" Password
-        div.col-sm-4
-          input.form-control type=password name=password id=password placeholder=password
-      div.form-group
-        div.col-sm-offset-2.col-sm-4
-          button.btn.btn-default login
+  div.row
+    h1 &nbsp;
+    
+
+  div.col-sm-offset-3.col-sm-6
+    div.panel.panel-default
+      div.panel-heading
+        | <b>Login</b>
+      div.panel-body
+        form method=post
+          div.form-group
+            label for="username" class="control-label" Username
+            input.form-control type=text name=username id=username
+          div.form-group
+            label for="password" class="control-label" Password
+            input.form-control type=password name=password id=password
+          div.form-group
+            button.btn.btn-default login

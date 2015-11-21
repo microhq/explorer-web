@@ -5,6 +5,8 @@
       h4 {{.Profile.Blurb}}
     ul.list-inline.col-md-12
       li
+        | Joined {{Date .Profile.Created}}
+      li
         {{if .Profile.Location}}
         span class="glyphicon glyphicon-globe"
         | &nbsp;{{.Profile.Location}} 
@@ -17,7 +19,13 @@
 
   div.row
     div.col-md-12
+      {{if .Services}}
       h3 Services
+      {{else}}
+      div.well
+        center
+          h3 This account has no services yet
+      {{end}}
   {{range .Services}}
   div.row
     div.col-md-12

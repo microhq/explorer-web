@@ -26,11 +26,11 @@ div.panel.panel-default
       div.form-group.col-sm-12
         label for="request" Request
         textarea.form-control rows=5 type=text name=endpoint[{{$i}}]request id=endpoint[{{$i}}]request
-          {{index $ep.Request "any"}}
+          {{index $ep.Request "default"}}
       div.form-group.col-sm-12
         label for="response" Response
         textarea.form-control rows=5 type=text name=endpoint[{{$i}}]response id=endpoint[{{$i}}]response
-          {{index $ep.Response "any"}}
+          {{index $ep.Response "default"}}
     {{end}}
     {{end}}
 

@@ -73,10 +73,10 @@
             div.panel-body.collapse id="collapseEp{{$i}}"
               h5 Request
               pre.well
-                {{index $ep.Request "any"}}
+                {{index $ep.Request "default"}}
               h5 Response
               pre.well
-                {{index $ep.Response "any"}}
+                {{index $ep.Response "default"}}
           {{end}}
 
         {{else}}
@@ -124,7 +124,7 @@
 
           {{else}}
           ul.list-group
-            No sources available
+            | No sources available
           {{end}}
 
     div.col-sm-6
@@ -164,6 +164,6 @@
 
           {{else}}
           ul.list-group
-            No Dependencies
+            | No Dependencies
           {{end}}
 

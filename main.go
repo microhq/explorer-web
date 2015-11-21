@@ -1,12 +1,17 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"html/template"
 	"net/http"
+	"net/url"
 	"regexp"
+	"strconv"
 	"sync"
 	"time"
+
+	sjson "github.com/bitly/go-simplejson"
 
 	// for markdown
 	"github.com/microcosm-cc/bluemonday"
@@ -17,17 +22,20 @@ import (
 	"github.com/yosssi/ace"
 	"golang.org/x/net/context"
 
-	prf "github.com/myodc/explorer-srv/proto/profile"
-	srv "github.com/myodc/explorer-srv/proto/service"
-	user "github.com/myodc/explorer-srv/proto/user"
-	"github.com/myodc/go-micro/client"
-	"github.com/myodc/go-micro/cmd"
+	prf "github.com/micro/explorer-srv/proto/profile"
+	search "github.com/micro/explorer-srv/proto/search"
+	srv "github.com/micro/explorer-srv/proto/service"
+	token "github.com/micro/explorer-srv/proto/token"
+	user "github.com/micro/explorer-srv/proto/user"
+	"github.com/micro/go-micro/client"
+	"github.com/micro/go-micro/cmd"
 	uuid "github.com/streadway/simpleuuid"
 )
 
 const (
-	ssid        = "_s"
-	sessionName = "X-Micro-Session"
+	alertId       = "_s"
+	ssid          = "_u"
+	sessionHeader = "X-Micro-Session"
 )
 
 var (
@@ -45,6 +53,37 @@ type Alert struct {
 	Type, Message string
 }
 
+type Pager struct {
+	Prev      string
+	Next      string
+	PrevState string
+	NextState string
+}
+
+type Handler struct {
+	r *mux.Router
+}
+
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	sess := getSession(w, r)
+	if sess != nil {
+		h.r.ServeHTTP(w, r)
+		return
+	}
+
+	if r.Method == "GET" {
+		landingHandler(w, r)
+		return
+	}
+
+	switch r.URL.Path {
+	case "/login", "/signup":
+		h.r.ServeHTTP(w, r)
+	default:
+		landingHandler(w, r)
+	}
+}
+
 func init() {
 	opts = ace.InitializeOptions(nil)
 	opts.BaseDir = templateDir
@@ -53,7 +92,61 @@ func init() {
 		"TimeAgo": func(t int64) string {
 			return timeAgo(t)
 		},
+		"TimeAgoIF": func(t json.Number) string {
+			i, _ := t.Float64()
+			return timeAgo(int64(i))
+		},
+		"Date": func(t int64) string {
+			return date(t)
+		},
 	}
+}
+
+func getPager(u *url.URL, page, limit, items int) *Pager {
+	pager := &Pager{}
+
+	if page == 0 || page == 1 {
+		pager.Prev = "#"
+		pager.PrevState = "disabled"
+	} else {
+		prev := u
+		vars := prev.Query()
+		vars.Set("page", strconv.Itoa(page-1))
+		prev.RawQuery = vars.Encode()
+		pager.Prev = prev.RequestURI()
+	}
+
+	if items < limit {
+		pager.Next = "#"
+		pager.NextState = "disabled"
+	} else {
+		next := u
+		vars := next.Query()
+		vars.Set("page", strconv.Itoa(page+1))
+		next.RawQuery = vars.Encode()
+		pager.Next = next.RequestURI()
+	}
+
+	return pager
+}
+
+func getPageOffset(p string, limit int) (int, int) {
+	page, err := strconv.Atoi(p)
+	if err != nil {
+		page = 1
+	}
+
+	if page > 20 {
+		page = 20
+	}
+
+	next := page - 1
+	if page == 1 {
+		next = 0
+	}
+
+	offset := next * limit
+	return page, offset
 }
 
 func timeAgo(t int64) string {
@@ -68,6 +161,11 @@ func timeAgo(t int64) string {
 	}
 
 	return timeAgo
+}
+
+func date(t int64) string {
+	d := time.Unix(t, 0)
+	return d.Format("2 Jan 2006")
 }
 
 func distanceOfTime(minutes float64) string {
@@ -98,16 +196,26 @@ func distanceOfTime(minutes float64) string {
 }
 
 func getSession(w http.ResponseWriter, r *http.Request) *user.Session {
-	c, err := r.Cookie(sessionName)
-	if err != nil {
+	var sessId string
+	c, err := r.Cookie(ssid)
+	if err == nil {
+		sessId = c.Value
+	} else if err == http.ErrNoCookie {
+		if s := r.Header.Get(sessionHeader); len(s) > 0 {
+			sessId = s
+		} else {
+			return nil
+		}
+	} else {
 		return nil
 	}
+
 	req := client.NewRequest("go.micro.srv.explorer", "User.ReadSession", &user.ReadSessionRequest{
-		SessionId: c.Value,
+		SessionId: sessId,
 	})
 	rsp := &user.ReadSessionResponse{}
 	if err := client.Call(context.Background(), req, rsp); err != nil {
-		http.SetCookie(w, sessions.NewCookie(sessionName, "deleted", &sessions.Options{
+		http.SetCookie(w, sessions.NewCookie(ssid, "deleted", &sessions.Options{
 			Path:     "/",
 			MaxAge:   -1,
 			HttpOnly: true,
@@ -118,7 +226,7 @@ func getSession(w http.ResponseWriter, r *http.Request) *user.Session {
 }
 
 func delSession(r *http.Request) {
-	c, err := r.Cookie(sessionName)
+	c, err := r.Cookie(ssid)
 	if err != nil {
 		return
 	}
@@ -130,7 +238,7 @@ func delSession(r *http.Request) {
 }
 
 func getAlert(w http.ResponseWriter, r *http.Request) *Alert {
-	session, err := store.Get(r, ssid)
+	session, err := store.Get(r, alertId)
 	if err != nil {
 		return nil
 	}
@@ -153,7 +261,7 @@ func getAlert(w http.ResponseWriter, r *http.Request) *Alert {
 }
 
 func setAlert(w http.ResponseWriter, r *http.Request, msg string, typ string) {
-	session, err := store.Get(r, ssid)
+	session, err := store.Get(r, alertId)
 	if err != nil {
 		return
 	}
@@ -236,15 +344,26 @@ func deleteServiceHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == "POST" {
-		req := client.NewRequest("go.micro.srv.explorer", "Service.Delete", &srv.DeleteRequest{
+		// delete from database
+		dreq := client.NewRequest("go.micro.srv.explorer", "Service.Delete", &srv.DeleteRequest{
 			Id: rsp.Services[0].Id,
 		})
-		rsp := &srv.DeleteResponse{}
-		if err := client.Call(context.Background(), req, rsp); err != nil {
+		drsp := &srv.DeleteResponse{}
+		if err := client.Call(context.Background(), dreq, drsp); err != nil {
 			setAlert(w, r, err.Error(), "error")
 			http.Redirect(w, r, r.Referer(), 302)
 			return
 		}
+		// delete from search indexes
+		sreq := client.NewRequest("go.micro.srv.explorer", "Search.Delete", &search.DeleteRequest{
+			Index: "service",
+			Type:  "service",
+			Id:    rsp.Services[0].Id,
+		})
+		srsp := &srv.DeleteResponse{}
+		client.Call(context.Background(), sreq, srsp)
+
+		// TODO: delete versions
 		http.Redirect(w, r, "/", 302)
 	}
 }
@@ -299,6 +418,7 @@ func editProfileHandler(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, r.Referer(), 302)
 			return
 		}
+		setAlert(w, r, "Successfully updated", "success")
 		http.Redirect(w, r, r.Referer(), 302)
 	}
 }
@@ -408,23 +528,41 @@ func editServiceHandler(w http.ResponseWriter, r *http.Request) {
 
 		// VALIDATE
 
-		req := client.NewRequest("go.micro.srv.explorer", "Service.Update", &srv.UpdateRequest{
-			Service: &srv.Service{
-				Id:          rsp.Services[0].Id,
-				Name:        name,
-				Owner:       owner,
-				Description: desc,
-				Url:         url,
-				Readme:      readme,
-			},
+		svc := &srv.Service{
+			Id:          rsp.Services[0].Id,
+			Name:        name,
+			Owner:       owner,
+			Description: desc,
+			Url:         url,
+			Readme:      readme,
+			Created:     rsp.Services[0].Created,
+			Updated:     time.Now().Unix(),
+		}
+		sureq := client.NewRequest("go.micro.srv.explorer", "Service.Update", &srv.UpdateRequest{
+			Service: svc,
 		})
-		rsp := &srv.UpdateResponse{}
-		if err := client.Call(context.Background(), req, rsp); err != nil {
+		sursp := &srv.UpdateResponse{}
+		if err := client.Call(context.Background(), sureq, sursp); err != nil {
 			setAlert(w, r, err.Error(), "error")
 			http.Redirect(w, r, r.Referer(), 302)
 			return
 		}
 
+		b, _ := json.Marshal(svc)
+		ureq := client.NewRequest("go.micro.srv.explorer", "Search.Update", &search.UpdateRequest{
+			Document: &search.Document{
+				Index: "service",
+				Type:  "service",
+				Id:    rsp.Services[0].Id,
+				Data:  string(b),
+			},
+		})
+		ursp := &srv.UpdateResponse{}
+		if err := client.Call(context.Background(), ureq, ursp); err != nil {
+			setAlert(w, r, err.Error(), "error")
+			http.Redirect(w, r, r.Referer(), 302)
+			return
+		}
 		http.Redirect(w, r, fmt.Sprintf("/%s/%s", owner, name), 302)
 	}
 }
@@ -559,9 +697,9 @@ func editVersionHandler(w http.ResponseWriter, r *http.Request) {
 				if i := m[0][3]; i == "name" {
 					s.Name = v[0]
 				} else if i == "request" {
-					s.Request["any"] = v[0]
+					s.Request["default"] = v[0]
 				} else if i == "response" {
-					s.Response["any"] = v[0]
+					s.Response["default"] = v[0]
 				} else {
 					s.Metadata[i] = v[0]
 				}
@@ -691,6 +829,22 @@ func indexHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func landingHandler(w http.ResponseWriter, r *http.Request) {
+	tpl, err := ace.Load("landing", "", opts)
+	if err != nil {
+		setAlert(w, r, err.Error(), "error")
+		http.Redirect(w, r, "/", 302)
+		return
+	}
+	if err := tpl.Execute(w, struct {
+		User  string
+		Alert *Alert
+	}{usr(r), getAlert(w, r)}); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
 func loginHandler(w http.ResponseWriter, r *http.Request) {
 	// GET: render login page
 	// POST: login and redirect to home
@@ -701,7 +855,10 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/", 302)
 			return
 		}
-		if err := tpl.Execute(w, map[string]string{"User": usr(r)}); err != nil {
+		if err := tpl.Execute(w, struct {
+			User  string
+			Alert *Alert
+		}{usr(r), getAlert(w, r)}); err != nil {
 			setAlert(w, r, err.Error(), "error")
 			http.Redirect(w, r, "/", 302)
 			return
@@ -731,7 +888,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, "/", 302)
 			return
 		}
-		c := sessions.NewCookie(sessionName, rsp.Session.Id, &sessions.Options{
+		c := sessions.NewCookie(ssid, rsp.Session.Id, &sessions.Options{
 			Path:     "/",
 			MaxAge:   int(time.Unix(rsp.Session.Expires, 0).Sub(time.Now()).Seconds()),
 			HttpOnly: true,
@@ -743,7 +900,7 @@ func loginHandler(w http.ResponseWriter, r *http.Request) {
 
 func logoutHandler(w http.ResponseWriter, r *http.Request) {
 	delSession(r)
-	http.SetCookie(w, sessions.NewCookie(sessionName, "deleted", &sessions.Options{
+	http.SetCookie(w, sessions.NewCookie(ssid, "deleted", &sessions.Options{
 		Path:     "/",
 		MaxAge:   -1,
 		HttpOnly: true,
@@ -788,23 +945,36 @@ func newServiceHandler(w http.ResponseWriter, r *http.Request) {
 		readme := r.Form.Get("readme")
 
 		// VALIDATE
+		if len(name) == 0 {
+			setAlert(w, r, "Service name cannot be blank", "error")
+			http.Redirect(w, r, r.Referer(), 302)
+			return
+		}
+		if len(owner) == 0 {
+			setAlert(w, r, "Owner cannot be blank", "error")
+			http.Redirect(w, r, r.Referer(), 302)
+			return
+		}
 
+		// create service
 		id, err := uuid.NewTime(time.Now())
 		if err != nil {
 			setAlert(w, r, err.Error(), "error")
 			http.Redirect(w, r, r.Referer(), 302)
 			return
 		}
-
+		svc := &srv.Service{
+			Id:          id.String(),
+			Name:        name,
+			Owner:       owner,
+			Description: desc,
+			Url:         url,
+			Readme:      readme,
+			Created:     time.Now().Unix(),
+			Updated:     time.Now().Unix(),
+		}
 		req := client.NewRequest("go.micro.srv.explorer", "Service.Create", &srv.CreateRequest{
-			Service: &srv.Service{
-				Id:          id.String(),
-				Name:        name,
-				Owner:       owner,
-				Description: desc,
-				Url:         url,
-				Readme:      readme,
-			},
+			Service: svc,
 		})
 		rsp := &srv.CreateResponse{}
 		if err := client.Call(context.Background(), req, rsp); err != nil {
@@ -813,13 +983,26 @@ func newServiceHandler(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// create search record
+		b, _ := json.Marshal(svc)
+		sreq := client.NewRequest("go.micro.srv.explorer", "Search.Create", &search.CreateRequest{
+			Document: &search.Document{
+				Index: "service",
+				Type:  "service",
+				Id:    svc.Id,
+				Data:  string(b),
+			},
+		})
+		srsp := &search.CreateResponse{}
+		client.Call(context.Background(), sreq, srsp)
+
+		// create version
 		vid, err := uuid.NewTime(time.Now())
 		if err != nil {
 			setAlert(w, r, err.Error(), "error")
 			http.Redirect(w, r, r.Referer(), 302)
 			return
 		}
-
 		vreq := client.NewRequest("go.micro.srv.explorer", "Service.CreateVersion", &srv.CreateVersionRequest{
 			Version: &srv.Version{
 				Id:        vid.String(),
@@ -991,10 +1174,42 @@ func redirectHandler(w http.ResponseWriter, r *http.Request) {
 
 func searchHandler(w http.ResponseWriter, r *http.Request) {
 	r.ParseForm()
+	p, o := getPageOffset(r.Form.Get("p"), 20)
+
 	q := r.Form.Get("q")
 	if len(q) == 0 {
+		setAlert(w, r, "query cannot be blank", "error")
 		http.Redirect(w, r, r.Referer(), 302)
 		return
+	}
+
+	req := client.NewRequest("go.micro.srv.explorer", "Search.Search", &search.SearchRequest{
+		Index:  "service",
+		Type:   "service",
+		Query:  q,
+		Limit:  20,
+		Offset: int64(o),
+	})
+	rsp := &search.SearchResponse{}
+	if err := client.Call(context.Background(), req, rsp); err != nil {
+		setAlert(w, r, err.Error(), "error")
+		http.Redirect(w, r, r.Referer(), 302)
+		return
+	}
+
+	var results []map[string]interface{}
+	for _, doc := range rsp.Documents {
+		j, err := sjson.NewJson([]byte(doc.Data))
+		if err == nil {
+			if res, err := j.Map(); err == nil {
+				results = append(results, res)
+			}
+		}
+	}
+
+	var pager *Pager
+	if len(results) == 20 || !(p < 2) {
+		pager = getPager(r.URL, p, 20, len(results))
 	}
 	// get search results
 	tpl, err := ace.Load("layout", "results", opts)
@@ -1004,9 +1219,11 @@ func searchHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := tpl.Execute(w, struct {
-		User  string
-		Alert *Alert
-	}{usr(r), getAlert(w, r)}); err != nil {
+		User    string
+		Alert   *Alert
+		Pager   *Pager
+		Results []map[string]interface{}
+	}{usr(r), getAlert(w, r), pager, results}); err != nil {
 		setAlert(w, r, err.Error(), "error")
 		http.Redirect(w, r, "/", 302)
 		return
@@ -1035,28 +1252,49 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 		username := r.Form.Get("username")
 		password := r.Form.Get("password")
 		email := r.Form.Get("email")
-		cpass := r.Form.Get("confirm")
+		invite := r.Form.Get("token")
 
-		if len(username) == 0 {
+		var thing string
+		var blank bool
+		switch {
+		case len(username) == 0:
+			thing = "username"
+			blank = true
+		case len(password) == 0:
+			thing = "password"
+			blank = true
+		case len(email) == 0:
+			thing = "email"
+			blank = true
+		case len(invite) == 0:
+			thing = "invite token"
+			blank = true
+		}
+
+		if blank {
+			setAlert(w, r, thing+" cannot be blank", "error")
 			http.Redirect(w, r, r.Referer(), 302)
 			return
 		}
-		if len(password) == 0 {
+
+		treq := client.NewRequest("go.micro.srv.explorer", "Token.Search", &token.SearchRequest{
+			Namespace: "invite",
+			Name:      invite,
+			Limit:     0,
+		})
+		trsp := &token.SearchResponse{}
+		if err := client.Call(context.Background(), treq, trsp); err != nil {
+			setAlert(w, r, err.Error(), "error")
 			http.Redirect(w, r, r.Referer(), 302)
 			return
 		}
-		if len(email) == 0 {
+
+		if trsp.Tokens == nil || len(trsp.Tokens) == 0 {
+			setAlert(w, r, "Invite token not found", "error")
 			http.Redirect(w, r, r.Referer(), 302)
 			return
 		}
-		if len(cpass) == 0 {
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
-		if cpass != password {
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
+
 		id, err := uuid.NewTime(time.Now())
 		if err != nil {
 			setAlert(w, r, err.Error(), "error")
@@ -1106,11 +1344,18 @@ func signupHandler(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, r.Referer(), 302)
 			return
 		}
-		c := sessions.NewCookie("X-Micro-Session", ursp.Session.Id, &sessions.Options{
+		c := sessions.NewCookie(ssid, ursp.Session.Id, &sessions.Options{
 			Path:     "/",
 			MaxAge:   int(time.Unix(ursp.Session.Expires, 0).Sub(time.Now()).Seconds()),
 			HttpOnly: true,
 		})
+
+		tdreq := client.NewRequest("go.micro.srv.explorer", "Token.Delete", &token.DeleteRequest{
+			Id: trsp.Tokens[0].Id,
+		})
+		tdrsp := &token.DeleteResponse{}
+		client.Call(context.Background(), tdreq, tdrsp)
+
 		http.SetCookie(w, c)
 		http.Redirect(w, r, "/", 302)
 	}
@@ -1159,6 +1404,7 @@ func updatePasswordHandler(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, r.Referer(), 302)
 			return
 		}
+		setAlert(w, r, "Password updated successfully", "success")
 		http.Redirect(w, r, r.Referer(), 302)
 	}
 }
@@ -1203,6 +1449,6 @@ func main() {
 
 	r.NotFoundHandler = http.HandlerFunc(auth(notFoundHandler, notFoundHandler))
 
-	http.Handle("/", r)
-	http.ListenAndServe(":8080", nil)
+	//	http.Handle("/", r)
+	http.ListenAndServe(":8080", &Handler{r})
 }

@@ -25,9 +25,9 @@
   div.row
     form method=post
       div.col-sm-offset-2 class="col-sm-8"
+        = include _editApi .Version.Api
         = include _editSource .Version.Sources
         = include _editDeps .Version.Dependencies
-        = include _editApi .Version.Api
 
       div.col-sm-offset-2.col-sm-8
         hr

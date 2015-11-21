@@ -29,9 +29,10 @@
               {{.Service.Readme}}
           div.form-group class="col-sm-12"
             hr
-          div.form-group class="col-sm-4"
             p
               button.btn.btn-default Update
+            hr
+
   div.row
     div.col-sm-offset-2 class="col-sm-8"
       div.panel class="panel-danger"

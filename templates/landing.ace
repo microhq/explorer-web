@@ -8,15 +8,16 @@ html lang=en
       | [Micro] Services - Welcome
       = yield title
     link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" integrity="sha512-dTfge/zgoMYpP7QbHy4gWMEGsbsdZeCXz7irItjcC3sPUFtf0kuFbDz/ixG7ArTxmDjLXDmezHubeNikyKGVyQ==" crossorigin="anonymous"
+    link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.4.0/css/font-awesome.min.css"
+    = css
+      .footer a { color: #333; };
   body
+    div.jumbotron
+      center
+        h1 <b>[Micro] </b>Services
+        h4 A place to share microservices built with <a href="https://micro.github.io/micro/">Micro</a>
+        h6 We're invite only at the moment.
     div.container
-      p
-      div.jumbotron
-        center
-          h1 <b>[Micro] </b>Services
-          h4 A place to share microservices built with <a href="https://micro.github.io/micro/">Micro</a>
-          h6 We're invite only at the moment.
-
       div.row
         = include _alert .Alert
         div.col-sm-4.col-sm-offset-2
@@ -58,5 +59,20 @@ html lang=en
                 div
                   button.btn.btn-default login
 
+    div.row.footer
+      hr
+      div.col-sm-12
+        center
+          ul.list-group.list-inline
+            li
+              a href="https://micro-services.slack.com"
+                i.fa.fa-slack.fa-2x
+            li
+              a href="https://github.com/micro"
+                i.fa.fa-github.fa-2x
+            li
+              a href="https://twitter.com/microhq"
+                i.fa.fa-twitter.fa-2x
+              
   script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"
   script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js" integrity="sha512-K1qjQ+NcF2TYO/eI3M6v8EiNYZfA95pQumfvcVrTHtwQVDG+aHRqLi/ETn2uB+1JqwYqVG3LIvdm9lj6imS/pQ==" crossorigin="anonymous"

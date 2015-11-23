@@ -13,7 +13,7 @@
       h6
         | Updated {{TimeAgo .Service.Updated}}
 
-      {{if eq .Service.Owner .User}}
+      {{if .CanEdit}}
         p
           a href="/{{.Service.Owner}}/{{.Service.Name}}/edit"
             button class="btn btn-sm btn-default" Edit
@@ -53,7 +53,7 @@
       // sources
       div.panel class=panel-default
         div.panel-heading
-          {{if eq .Service.Owner .User}}
+          {{if .CanEdit}}
           a href="/{{.Service.Owner}}/{{.Service.Name}}/version/{{.Version.Version}}/edit#api"
             button class="btn btn-sm btn-default pull-right" Edit
           {{end}}
@@ -93,7 +93,7 @@
       // sources
       div.panel class=panel-default
         div.panel-heading
-          {{if eq .Service.Owner .User}}
+          {{if .CanEdit}}
           a href="/{{.Service.Owner}}/{{.Service.Name}}/version/{{.Version.Version}}/edit#sources"
             button class="btn btn-sm btn-default pull-right" Edit
           {{end}}
@@ -134,7 +134,7 @@
       // dependencies
       div.panel class=panel-default
         div.panel-heading
-          {{if eq .Service.Owner .User}}
+          {{if .CanEdit}}
           a href="/{{.Service.Owner}}/{{.Service.Name}}/version/{{.Version.Version}}/edit#deps"
             button class="btn btn-sm btn-default pull-right" Edit
           {{end}}

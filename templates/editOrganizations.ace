@@ -1,3 +1,5 @@
+= content title
+  | Edit Organizations
 = content main
   div.row
   
@@ -15,3 +17,23 @@
               h5
                 a href=/{{.Name}} {{.Name}}
           {{end}}
+
+
+    div.col-sm-9
+      div.panel.panel-default
+        div.panel-heading Member of
+        ul.list-group
+          {{if .Member}}
+          {{range .Member}}
+            li.list-group-item
+              form.form-inline.pull-right method=post action=/organizations/{{.OrgName}}/settings/members/leave
+                input type=hidden name=name id=name value={{.Username}}
+                  button.btn.btn-sm.btn-default Leave
+              h5
+                a href=/{{.OrgName}} {{.OrgName}}
+          {{end}}
+          {{else}}
+          li.list-group-item
+            | Not a member of any other organizations
+          {{end}}
+

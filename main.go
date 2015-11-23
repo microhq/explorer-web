@@ -71,9 +71,14 @@ func main() {
 	r.HandleFunc("/settings/profile", auth(handler.EditProfile, handler.Redirect))
 	r.HandleFunc("/settings/organizations", auth(handler.EditOrganizations, handler.Redirect))
 
-	r.HandleFunc("/organizations/{organization}/settings/members", auth(handler.EditOrganizationMembers, handler.Redirect))
 	r.HandleFunc("/organizations/{organization}/settings/email", auth(handler.UpdateOrganizationEmail, handler.Redirect))
 	r.HandleFunc("/organizations/{organization}/settings/profile", auth(handler.EditOrganization, handler.Redirect))
+
+	// org cruft
+	r.HandleFunc("/organizations/{organization}/settings/members", auth(handler.ViewOrgMembers, handler.Redirect))
+	r.HandleFunc("/organizations/{organization}/settings/members/add", auth(handler.AddOrgMember, handler.Redirect))
+	r.HandleFunc("/organizations/{organization}/settings/members/delete", auth(handler.DelOrgMember, handler.Redirect))
+	r.HandleFunc("/organizations/{organization}/settings/members/leave", auth(handler.LeaveOrg, handler.Redirect))
 
 	// create things
 	r.HandleFunc("/new/service", auth(handler.NewService, handler.NotFound))

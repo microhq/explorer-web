@@ -1,0 +1,36 @@
+= content title
+  | Organization Members
+= content main
+  div.row
+    = include _organizationSettings .Org
+
+    div.col-sm-9
+      div.panel.panel-default
+        div.panel-heading Owner
+        ul.list-group
+          li.list-group-item
+            a href=/{{.Org.Owner}} {{.Org.Owner}}
+
+    div.col-sm-9
+      div.panel.panel-default
+        div.panel-heading.clearfix Members
+          form.form-inline.pull-right method=post action=/organizations/{{.Org.Name}}/settings/members/add
+            input.form-control type=text name=name id=name placeholder=Username
+            | &nbsp;
+            button.btn.btn-default
+              | Invite User
+          
+        ul.list-group
+          {{if .Members}}
+          {{range .Members}}
+            li.list-group-item.clearfix
+              form.form-inline.pull-right method=post action=/organizations/{{.OrgName}}/settings/members/delete
+                input.form-control type=hidden name=name id=name value={{.Username}}
+                button.btn-sm.btn.btn-default
+                  | Remove
+              h5
+                a href=/{{.Username}} {{.Username}}
+          {{end}}
+          {{else}}
+          li.list-group-item No members
+          {{end}}

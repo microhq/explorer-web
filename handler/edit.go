@@ -98,68 +98,6 @@ func EditOrganization(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func EditOrganizationMembers(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	organization := strings.ToLower(vars["organization"])
-	usrr := session.User(r)
-
-	oreq := client.NewRequest("go.micro.srv.explorer", "Organization.Search", &org.SearchRequest{
-		Name:  organization,
-		Owner: usrr,
-		Limit: 1, // fix this shit
-	})
-	orsp := &org.SearchResponse{}
-	if err := client.Call(context.Background(), oreq, orsp); err != nil {
-		session.SetAlert(w, r, err.Error(), "error")
-		http.Redirect(w, r, r.Referer(), 302)
-		return
-	}
-
-	if orsp.Organizations == nil || len(orsp.Organizations) == 0 {
-		NotFound(w, r)
-		return
-	}
-
-	preq := client.NewRequest("go.micro.srv.explorer", "Organization.SearchMembers", &org.SearchMembersRequest{
-		OrgId:  orsp.Organizations[0].Id,
-		Limit: 100,
-	})
-	prsp := &org.SearchMembersResponse{}
-	if err := client.Call(context.Background(), preq, prsp); err != nil {
-		session.SetAlert(w, r, err.Error(), "error")
-		http.Redirect(w, r, r.Referer(), 302)
-		return
-	}
-
-	if r.Method == "GET" {
-		tpl, err := ace.Load("layout", "editOrgMembers", opts)
-		if err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, "/", 302)
-			return
-		}
-		if err := tpl.Execute(w, struct {
-			User    string
-			Alert   *session.Alert
-			Org     *org.Organization
-			Members []*org.Member
-		}{
-			session.User(r),
-			session.GetAlert(w, r),
-			orsp.Organizations[0],
-			prsp.Members,
-		}); err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, "/", 302)
-			return
-		}
-	} else if r.Method == "POST" {
-		r.ParseForm()
-		session.SetAlert(w, r, "Successfully updated", "success")
-		http.Redirect(w, r, r.Referer(), 302)
-	}
-}
-
 func EditProfile(w http.ResponseWriter, r *http.Request) {
 	usrr := session.User(r)
 
@@ -302,6 +240,17 @@ func EditOrganizations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	mreq := client.NewRequest("go.micro.srv.explorer", "Organization.SearchMembers", &org.SearchMembersRequest{
+		Username: usrr,
+		Limit:    100, // fix this shit
+	})
+	mrsp := &org.SearchMembersResponse{}
+	if err := client.Call(context.Background(), mreq, mrsp); err != nil {
+		session.SetAlert(w, r, err.Error(), "error")
+		http.Redirect(w, r, r.Referer(), 302)
+		return
+	}
+
 	tpl, err := ace.Load("layout", "editOrganizations", opts)
 	if err != nil {
 		session.SetAlert(w, r, err.Error(), "error")
@@ -309,10 +258,11 @@ func EditOrganizations(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := tpl.Execute(w, struct {
-		User  string
-		Alert *session.Alert
-		Orgs  []*org.Organization
-	}{session.User(r), session.GetAlert(w, r), orsp.Organizations}); err != nil {
+		User   string
+		Alert  *session.Alert
+		Orgs   []*org.Organization
+		Member []*org.Member
+	}{session.User(r), session.GetAlert(w, r), orsp.Organizations, mrsp.Members}); err != nil {
 		session.SetAlert(w, r, err.Error(), "error")
 		http.Redirect(w, r, "/", 302)
 		return
@@ -360,7 +310,45 @@ func EditService(w http.ResponseWriter, r *http.Request) {
 
 	usrr := session.User(r)
 
-	if len(rsp.Services) == 0 || usrr != rsp.Services[0].Owner {
+	if len(rsp.Services) == 0 {
+		NotFound(w, r)
+		return
+	}
+
+	if rsp.Services[0].Owner != usrr && prsp.Profiles[0].Type == 1 {
+		// Find member
+		oreq := client.NewRequest("go.micro.srv.explorer", "Organization.SearchMembers", &org.SearchMembersRequest{
+			OrgName:  prsp.Profiles[0].Name,
+			Username: usrr,
+			Limit:    1,
+		})
+		orsp := &org.SearchMembersResponse{}
+		if err := client.Call(context.Background(), oreq, orsp); err != nil {
+			session.SetAlert(w, r, err.Error(), "error")
+			http.Redirect(w, r, r.Referer(), 302)
+			return
+		}
+
+		// TODO: validate that the user has admin rights to the organization
+		if orsp.Members == nil || len(orsp.Members) == 0 {
+			// Where user is the owner
+			ureq := client.NewRequest("go.micro.srv.explorer", "Organization.Search", &org.SearchRequest{
+				Name:  prsp.Profiles[0].Name,
+				Owner: usrr,
+				Limit: 1,
+			})
+			ursp := &org.SearchResponse{}
+			if err := client.Call(context.Background(), ureq, ursp); err != nil {
+				session.SetAlert(w, r, err.Error(), "error")
+				http.Redirect(w, r, r.Referer(), 302)
+				return
+			}
+			if len(ursp.Organizations) == 0 || ursp.Organizations[0].Owner != usrr {
+				NotFound(w, r)
+				return
+			}
+		}
+	} else {
 		NotFound(w, r)
 		return
 	}
@@ -479,7 +467,45 @@ func EditVersion(w http.ResponseWriter, r *http.Request) {
 
 	usrr := session.User(r)
 
-	if len(rsp.Services) == 0 || usrr != rsp.Services[0].Owner {
+	if len(rsp.Services) == 0 {
+		NotFound(w, r)
+		return
+	}
+
+	if rsp.Services[0].Owner != usrr && prsp.Profiles[0].Type == 1 {
+		// Find member
+		oreq := client.NewRequest("go.micro.srv.explorer", "Organization.SearchMembers", &org.SearchMembersRequest{
+			OrgName:  prsp.Profiles[0].Name,
+			Username: usrr,
+			Limit:    1,
+		})
+		orsp := &org.SearchMembersResponse{}
+		if err := client.Call(context.Background(), oreq, orsp); err != nil {
+			session.SetAlert(w, r, err.Error(), "error")
+			http.Redirect(w, r, r.Referer(), 302)
+			return
+		}
+
+		// TODO: validate that the user has admin rights to the organization
+		if orsp.Members == nil || len(orsp.Members) == 0 {
+			// Where user is the owner
+			ureq := client.NewRequest("go.micro.srv.explorer", "Organization.Search", &org.SearchRequest{
+				Name:  prsp.Profiles[0].Name,
+				Owner: usrr,
+				Limit: 1,
+			})
+			ursp := &org.SearchResponse{}
+			if err := client.Call(context.Background(), ureq, ursp); err != nil {
+				session.SetAlert(w, r, err.Error(), "error")
+				http.Redirect(w, r, r.Referer(), 302)
+				return
+			}
+			if len(ursp.Organizations) == 0 || ursp.Organizations[0].Owner != usrr {
+				NotFound(w, r)
+				return
+			}
+		}
+	} else {
 		NotFound(w, r)
 		return
 	}

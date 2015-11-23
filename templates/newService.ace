@@ -13,7 +13,11 @@
         form method=post
           div.form-group class="col-sm-4"
             label for="owner" Owner 
-            input.form-control type=text name=owner id=owner value={{.User}} readonly=
+            select.form-control name=owner id=owner
+              | <option selected>{{.User}}</selected>
+              {{range .Orgs}}
+              option {{.}}
+              {{end}}
           div.form-group class="col-sm-8"
             label for="name" Service Name
             input.form-control type=text name=name id=name

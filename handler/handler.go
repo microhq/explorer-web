@@ -28,8 +28,6 @@ import (
 	prf "github.com/micro/explorer-srv/proto/profile"
 	search "github.com/micro/explorer-srv/proto/search"
 	srv "github.com/micro/explorer-srv/proto/service"
-	token "github.com/micro/explorer-srv/proto/token"
-	user "github.com/micro/explorer-srv/proto/user"
 	uuid "github.com/streadway/simpleuuid"
 )
 
@@ -159,6 +157,10 @@ func distanceOfTime(minutes float64) string {
 }
 
 func DeleteService(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		return
+	}
+
 	vars := mux.Vars(r)
 	profile := strings.ToLower(vars["profile"])
 	service := strings.ToLower(vars["service"])
@@ -199,34 +201,70 @@ func DeleteService(w http.ResponseWriter, r *http.Request) {
 
 	usrr := session.User(r)
 
-	if len(rsp.Services) == 0 || usrr != rsp.Services[0].Owner {
+	if len(rsp.Services) == 0 {
 		NotFound(w, r)
 		return
 	}
 
-	if r.Method == "POST" {
-		// delete from database
-		dreq := client.NewRequest("go.micro.srv.explorer", "Service.Delete", &srv.DeleteRequest{
-			Id: rsp.Services[0].Id,
+	if rsp.Services[0].Owner != usrr && prsp.Profiles[0].Type == 1 {
+		// Find member
+		oreq := client.NewRequest("go.micro.srv.explorer", "Organization.SearchMembers", &org.SearchMembersRequest{
+			OrgName:  prsp.Profiles[0].Name,
+			Username: usrr,
+			Limit:    1,
 		})
-		drsp := &srv.DeleteResponse{}
-		if err := client.Call(context.Background(), dreq, drsp); err != nil {
+		orsp := &org.SearchMembersResponse{}
+		if err := client.Call(context.Background(), oreq, orsp); err != nil {
 			session.SetAlert(w, r, err.Error(), "error")
 			http.Redirect(w, r, r.Referer(), 302)
 			return
 		}
-		// delete from search indexes
-		sreq := client.NewRequest("go.micro.srv.explorer", "Search.Delete", &search.DeleteRequest{
-			Index: "service",
-			Type:  "service",
-			Id:    rsp.Services[0].Id,
-		})
-		srsp := &srv.DeleteResponse{}
-		client.Call(context.Background(), sreq, srsp)
 
-		// TODO: delete versions
-		http.Redirect(w, r, "/", 302)
+		// TODO: validate that the user has admin rights to the organization
+		if orsp.Members == nil || len(orsp.Members) == 0 {
+			// Where user is the owner
+			ureq := client.NewRequest("go.micro.srv.explorer", "Organization.Search", &org.SearchRequest{
+				Name:  prsp.Profiles[0].Name,
+				Owner: usrr,
+				Limit: 1,
+			})
+			ursp := &org.SearchResponse{}
+			if err := client.Call(context.Background(), ureq, ursp); err != nil {
+				session.SetAlert(w, r, err.Error(), "error")
+				http.Redirect(w, r, r.Referer(), 302)
+				return
+			}
+			if len(ursp.Organizations) == 0 || ursp.Organizations[0].Owner != usrr {
+				NotFound(w, r)
+				return
+			}
+		}
+	} else {
+		NotFound(w, r)
+		return
 	}
+
+	// delete from database
+	dreq := client.NewRequest("go.micro.srv.explorer", "Service.Delete", &srv.DeleteRequest{
+		Id: rsp.Services[0].Id,
+	})
+	drsp := &srv.DeleteResponse{}
+	if err := client.Call(context.Background(), dreq, drsp); err != nil {
+		session.SetAlert(w, r, err.Error(), "error")
+		http.Redirect(w, r, r.Referer(), 302)
+		return
+	}
+	// delete from search indexes
+	sreq := client.NewRequest("go.micro.srv.explorer", "Search.Delete", &search.DeleteRequest{
+		Index: "service",
+		Type:  "service",
+		Id:    rsp.Services[0].Id,
+	})
+	srsp := &srv.DeleteResponse{}
+	client.Call(context.Background(), sreq, srsp)
+
+	// TODO: delete versions
+	http.Redirect(w, r, "/", 302)
 }
 
 func Home(w http.ResponseWriter, r *http.Request) {
@@ -315,47 +353,6 @@ func Landing(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func Login(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		tpl, err := ace.Load("layout", "login", opts)
-		if err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, "/", 302)
-			return
-		}
-		if err := tpl.Execute(w, struct {
-			User  string
-			Alert *session.Alert
-		}{session.User(r), session.GetAlert(w, r)}); err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, "/", 302)
-			return
-		}
-	} else if r.Method == "POST" {
-		r.ParseForm()
-		username := strings.ToLower(r.Form.Get("username"))
-		password := r.Form.Get("password")
-		if len(username) == 0 || len(password) == 0 {
-			session.SetAlert(w, r, "Username or password can't be blank", "error")
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
-		if err := session.Login(w, r, username, password); err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, "/", 302)
-			return
-		}
-		http.Redirect(w, r, "/", 302)
-	}
-}
-
-func Logout(w http.ResponseWriter, r *http.Request) {
-	if err := session.Logout(w, r); err != nil {
-		session.SetAlert(w, r, err.Error(), "error")
-	}
-	http.Redirect(w, r, r.Referer(), 302)
-}
-
 func NotFound(w http.ResponseWriter, r *http.Request) {
 	tpl, err := ace.Load("layout", "404", opts)
 	if err != nil {
@@ -368,114 +365,44 @@ func NotFound(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func NewOrganization(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		tpl, err := ace.Load("layout", "newOrganization", opts)
-		if err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, "/", 302)
-			return
-		}
-		if err := tpl.Execute(w, struct {
-			User  string
-			Alert *session.Alert
-		}{session.User(r), session.GetAlert(w, r)}); err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, "/", 302)
-			return
-		}
-	} else if r.Method == "POST" {
-		r.ParseForm()
-		owner := strings.ToLower(r.Form.Get("owner"))
-		name := strings.ToLower(r.Form.Get("name"))
-		email := strings.ToLower(r.Form.Get("email"))
-
-		// create org
-		id, err := uuid.NewTime(time.Now())
-		if err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
-
-		orgg := &org.Organization{
-			Id:      id.String(),
-			Name:    name,
-			Owner:   owner,
-			Email:   email,
-			Created: time.Now().Unix(),
-			Updated: time.Now().Unix(),
-		}
-
-		if err := validateOrg(orgg); err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
-
-		// get profile
-		preq := client.NewRequest("go.micro.srv.explorer", "Profile.Search", &prf.SearchRequest{
-			Name:  name,
-			Limit: 1,
-		})
-		prsp := &prf.SearchResponse{}
-		if err := client.Call(context.Background(), preq, prsp); err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
-
-		if len(prsp.Profiles) != 0 {
-			session.SetAlert(w, r, "Organization or user already exists", "error")
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
-
-		// create org
-		req := client.NewRequest("go.micro.srv.explorer", "Organization.Create", &org.CreateRequest{
-			Organization: orgg,
-		})
-		rsp := &org.CreateResponse{}
-		if err := client.Call(context.Background(), req, rsp); err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
-
-		// create org profile
-		pcreq := client.NewRequest("go.micro.srv.explorer", "Profile.Create", &prf.CreateRequest{
-			Profile: &prf.Profile{
-				Id:    id.String(),
-				Name:  name,
-				Owner: owner,
-				Type:  1,
-			},
-		})
-		pcrsp := &prf.CreateResponse{}
-		if err := client.Call(context.Background(), pcreq, pcrsp); err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
-
-		// create search record
-		b, _ := json.Marshal(orgg)
-		sreq := client.NewRequest("go.micro.srv.explorer", "Search.Create", &search.CreateRequest{
-			Document: &search.Document{
-				Index: "organization",
-				Type:  "organization",
-				Id:    orgg.Id,
-				Data:  string(b),
-			},
-		})
-		srsp := &search.CreateResponse{}
-		client.Call(context.Background(), sreq, srsp)
-
-		http.Redirect(w, r, fmt.Sprintf("/%s", name), 302)
-	}
-}
-
 func NewService(w http.ResponseWriter, r *http.Request) {
+	usrr := session.User(r)
+
+	// Find member
+	// TODO: validate that the user has admin rights to the organization
+	oreq := client.NewRequest("go.micro.srv.explorer", "Organization.SearchMembers", &org.SearchMembersRequest{
+		Username: usrr,
+		Limit:    100, // TODO: fix cruft
+	})
+	orsp := &org.SearchMembersResponse{}
+	if err := client.Call(context.Background(), oreq, orsp); err != nil {
+		session.SetAlert(w, r, err.Error(), "error")
+		http.Redirect(w, r, r.Referer(), 302)
+		return
+	}
+
+	// Where user is the owner
+	ureq := client.NewRequest("go.micro.srv.explorer", "Organization.Search", &org.SearchRequest{
+		Owner: usrr,
+		Limit: 100, // TODO: fix cruft
+	})
+	ursp := &org.SearchResponse{}
+	if err := client.Call(context.Background(), ureq, ursp); err != nil {
+		session.SetAlert(w, r, err.Error(), "error")
+		http.Redirect(w, r, r.Referer(), 302)
+		return
+	}
+
+	var orgs []string
+
+	for _, o := range orsp.Members {
+		orgs = append(orgs, o.OrgName)
+	}
+
+	for _, o := range ursp.Organizations {
+		orgs = append(orgs, o.Name)
+	}
+
 	if r.Method == "GET" {
 		tpl, err := ace.Load("layout", "newService", opts)
 		if err != nil {
@@ -486,7 +413,8 @@ func NewService(w http.ResponseWriter, r *http.Request) {
 		if err := tpl.Execute(w, struct {
 			User  string
 			Alert *session.Alert
-		}{session.User(r), session.GetAlert(w, r)}); err != nil {
+			Orgs  []string
+		}{usrr, session.GetAlert(w, r), orgs}); err != nil {
 			session.SetAlert(w, r, err.Error(), "error")
 			http.Redirect(w, r, "/", 302)
 			return
@@ -503,6 +431,21 @@ func NewService(w http.ResponseWriter, r *http.Request) {
 		id, err := uuid.NewTime(time.Now())
 		if err != nil {
 			session.SetAlert(w, r, err.Error(), "error")
+			http.Redirect(w, r, r.Referer(), 302)
+			return
+		}
+
+		// is the owner in the org
+		var seen bool
+		for _, o := range orgs {
+			if o == owner {
+				seen = true
+				break
+			}
+		}
+
+		if !seen && owner != usrr {
+			session.SetAlert(w, r, "Not authorised to create service", "error")
 			http.Redirect(w, r, r.Referer(), 302)
 			return
 		}
@@ -637,6 +580,7 @@ func Service(w http.ResponseWriter, r *http.Request) {
 	profile := vars["profile"]
 	service := vars["service"]
 	version := vars["version"]
+	usrr := session.User(r)
 
 	if len(version) == 0 {
 		version = "default"
@@ -698,6 +642,46 @@ func Service(w http.ResponseWriter, r *http.Request) {
 		ver = vrsp.Versions[0]
 	}
 
+	var canEdit bool
+
+	if rsp.Services[0].Owner == usrr || prsp.Profiles[0].Owner == usrr {
+		canEdit = true
+	} else if prsp.Profiles[0].Type == 1 {
+		// Find member
+		oreq := client.NewRequest("go.micro.srv.explorer", "Organization.SearchMembers", &org.SearchMembersRequest{
+			OrgName:  prsp.Profiles[0].Name,
+			Username: usrr,
+			Limit:    1,
+		})
+		orsp := &org.SearchMembersResponse{}
+		if err := client.Call(context.Background(), oreq, orsp); err != nil {
+			session.SetAlert(w, r, err.Error(), "error")
+			http.Redirect(w, r, r.Referer(), 302)
+			return
+		}
+
+		// TODO: validate that the user has admin rights to the organization
+		if len(orsp.Members) == 1 {
+			canEdit = true
+		} else {
+			// Where user is the owner
+			ureq := client.NewRequest("go.micro.srv.explorer", "Organization.Search", &org.SearchRequest{
+				Name:  prsp.Profiles[0].Name,
+				Owner: usrr,
+				Limit: 1,
+			})
+			ursp := &org.SearchResponse{}
+			if err := client.Call(context.Background(), ureq, ursp); err != nil {
+				session.SetAlert(w, r, err.Error(), "error")
+				http.Redirect(w, r, r.Referer(), 302)
+				return
+			}
+			if len(ursp.Organizations) == 1 && ursp.Organizations[0].Owner == usrr {
+				canEdit = true
+			}
+		}
+	}
+
 	tpl, err := ace.Load("layout", "service", opts)
 	if err != nil {
 		session.SetAlert(w, r, err.Error(), "error")
@@ -714,7 +698,8 @@ func Service(w http.ResponseWriter, r *http.Request) {
 		Alert   *session.Alert
 		Service *srv.Service
 		Version *srv.Version
-	}{session.User(r), string(readme), session.GetAlert(w, r), rsp.Services[0], ver}); err != nil {
+		CanEdit bool
+	}{session.User(r), string(readme), session.GetAlert(w, r), rsp.Services[0], ver, canEdit}); err != nil {
 		session.SetAlert(w, r, err.Error(), "error")
 		http.Redirect(w, r, "/", 302)
 		return
@@ -780,108 +765,5 @@ func Search(w http.ResponseWriter, r *http.Request) {
 		session.SetAlert(w, r, err.Error(), "error")
 		http.Redirect(w, r, "/", 302)
 		return
-	}
-}
-
-// User signup page
-func Signup(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "GET" {
-		tpl, err := ace.Load("layout", "signup", opts)
-		if err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, "/", 302)
-			return
-		}
-		if err := tpl.Execute(w, struct {
-			User  string
-			Alert *session.Alert
-		}{session.User(r), session.GetAlert(w, r)}); err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, "/", 302)
-			return
-		}
-	} else if r.Method == "POST" {
-		r.ParseForm()
-		username := strings.ToLower(r.Form.Get("username"))
-		password := r.Form.Get("password")
-		email := strings.ToLower(r.Form.Get("email"))
-		invite := r.Form.Get("token")
-
-		// validation
-		if err := validateSignup(username, password, email, invite); err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
-
-		treq := client.NewRequest("go.micro.srv.explorer", "Token.Search", &token.SearchRequest{
-			Namespace: "invite",
-			Name:      invite,
-			Limit:     1,
-		})
-		trsp := &token.SearchResponse{}
-		if err := client.Call(context.Background(), treq, trsp); err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
-
-		if trsp.Tokens == nil || len(trsp.Tokens) == 0 {
-			session.SetAlert(w, r, "Invite token not found", "error")
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
-
-		id, err := uuid.NewTime(time.Now())
-		if err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
-		// create user
-		req := client.NewRequest("go.micro.srv.explorer", "User.Create", &user.CreateRequest{
-			User: &user.User{
-				Id:       id.String(),
-				Username: username,
-				Email:    email,
-			},
-			Password: password,
-		})
-		rsp := &user.CreateResponse{}
-		if err := client.Call(context.Background(), req, rsp); err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
-
-		preq := client.NewRequest("go.micro.srv.explorer", "Profile.Create", &prf.CreateRequest{
-			Profile: &prf.Profile{
-				Id:    id.String(),
-				Name:  username,
-				Owner: username,
-			},
-		})
-		prsp := &prf.CreateResponse{}
-		if err := client.Call(context.Background(), preq, prsp); err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
-
-		// success!
-		// login
-		if err := session.Login(w, r, username, password); err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
-
-		tdreq := client.NewRequest("go.micro.srv.explorer", "Token.Delete", &token.DeleteRequest{
-			Id: trsp.Tokens[0].Id,
-		})
-		tdrsp := &token.DeleteResponse{}
-		client.Call(context.Background(), tdreq, tdrsp)
-
-		http.Redirect(w, r, "/", 302)
 	}
 }

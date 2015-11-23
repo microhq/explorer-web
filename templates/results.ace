@@ -1,3 +1,5 @@
+= content title
+  | Search Results
 = content main
   div.row
     div.col-sm-12

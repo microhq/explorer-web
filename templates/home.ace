@@ -6,7 +6,7 @@
     div.col-sm-8
       h1 Explore
       h4 Latest services
-      {{range .Services}}
+      {{range .Explore}}
       div.row
         div.col-sm-12
           h3

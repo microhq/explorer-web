@@ -65,12 +65,19 @@ func main() {
 	r.HandleFunc("/signup", auth(handler.Redirect, handler.Signup))
 
 	// settings
-	r.HandleFunc("/settings/profile", auth(handler.EditProfile, handler.Redirect))
 	r.HandleFunc("/settings/account", auth(handler.EditAccount, handler.Redirect))
+	r.HandleFunc("/settings/account/email", auth(handler.UpdateEmail, handler.Redirect))
 	r.HandleFunc("/settings/account/password", auth(handler.UpdatePassword, handler.Redirect))
+	r.HandleFunc("/settings/profile", auth(handler.EditProfile, handler.Redirect))
+	r.HandleFunc("/settings/organizations", auth(handler.EditOrganizations, handler.Redirect))
+
+	r.HandleFunc("/organizations/{organization}/settings/members", auth(handler.EditOrganizationMembers, handler.Redirect))
+	r.HandleFunc("/organizations/{organization}/settings/email", auth(handler.UpdateOrganizationEmail, handler.Redirect))
+	r.HandleFunc("/organizations/{organization}/settings/profile", auth(handler.EditOrganization, handler.Redirect))
 
 	// create things
 	r.HandleFunc("/new/service", auth(handler.NewService, handler.NotFound))
+	r.HandleFunc("/new/organization", auth(handler.NewOrganization, handler.NotFound))
 
 	// For paying customers
 	//r.HandleFunc("/new/version", auth(newServiceHandler, notFoundHandler))

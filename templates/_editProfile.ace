@@ -1,0 +1,20 @@
+div.panel class="panel-default"
+  div.panel-heading Profile
+    span.pull-right
+      a href=/{{.Name}} Go to profile
+  div.panel-body
+    form method=post
+      div.form-group
+        label for="name" class="control-label" Name
+        input.form-control type=text name=name id=name placeholder="Display Name" value={{.DisplayName}}
+      div.form-group
+        label for="blurb" class="control-label" Blurb
+        input.form-control type=text name=blurb id=blurb placeholder="Blurb" value={{.Blurb}}
+      div.form-group
+        label for="location" class="control-label" Location
+        input.form-control type=text name=location id=location placeholder="Location" value={{.Location}}
+      div.form-group
+        label for="url" class="control-label" URL
+        input.form-control type=text name=url id=url placeholder="URL" value={{.Url}}
+      div.form-group
+        button.btn.btn-default Update

@@ -20,3 +20,14 @@
                 input.form-control type=password name=confirm_pass id=confirm_pass
               div.form-group
                 button.btn.btn-default Update
+
+      div.panel class="panel-default"
+        div.panel-heading Update Email
+        div.panel-body
+          form.row method=post action=/settings/account/email
+            div.col-sm-6
+              div.form-group
+                label for="text" class="control-label" Email
+                input.form-control type=text name=email id=email value={{.Email}}
+              div.form-group
+                button.btn.btn-default Update

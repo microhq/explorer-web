@@ -6,3 +6,5 @@ div.col-sm-3
         a href="/settings/profile" Profile
       li.list-group-item
         a href="/settings/account" Account
+      li.list-group-item
+        a href="/settings/organizations" Organizations

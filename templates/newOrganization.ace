@@ -1,0 +1,23 @@
+= content title
+  | New Organization
+= content main
+  div.row
+    div.col-sm-offset-2 class="col-sm-8"
+      div.page-header
+        h3 Create a new organization
+          br
+          small Collaborate on services with your colleages or friends.
+  div.row
+    div.col-sm-offset-2 class="col-sm-8"
+      div.row
+        form method=post
+          div.form-group class="col-sm-12"
+            label for="name" Organization Name
+            input.form-control type=text name=name id=name
+            input.form-control type=hidden name=owner id=owner value={{.User}}
+          div.form-group class="col-sm-12"
+            label for="email" Email
+            input.form-control type=text name=email id=email
+          div.form-group class="col-sm-12"
+            hr
+            button.btn.btn-default Create

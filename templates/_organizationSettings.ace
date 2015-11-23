@@ -1,0 +1,8 @@
+div.col-sm-3
+  div.panel class="panel-default"
+    div.panel-heading Organization Settings
+    ul.list-group
+      li.list-group-item
+        a href="/organizations/{{.Name}}/settings/profile" Profile
+      li.list-group-item
+        a href="/organizations/{{.Name}}/settings/members" Members

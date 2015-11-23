@@ -1,24 +1,5 @@
 = content main
   div.row
-  
     = include _settings
-
     div.col-sm-9
-      div.panel class="panel-default"
-        div.panel-heading Profile
-        div.panel-body
-          form method=post
-            div.form-group
-              label for="name" class="control-label" Name
-              input.form-control type=text name=name id=name placeholder="Display Name" value={{.Profile.DisplayName}}
-            div.form-group
-              label for="blurb" class="control-label" Blurb
-              input.form-control type=text name=blurb id=blurb placeholder="Blurb" value={{.Profile.Blurb}}
-            div.form-group
-              label for="location" class="control-label" Location
-              input.form-control type=text name=location id=location placeholder="Location" value={{.Profile.Location}}
-            div.form-group
-              label for="url" class="control-label" URL
-              input.form-control type=text name=url id=url placeholder="URL" value={{.Profile.Url}}
-            div.form-group
-              button.btn.btn-default Update
+      = include _editProfile .Profile

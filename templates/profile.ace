@@ -1,3 +1,6 @@
+= content title
+  | {{.Profile.DisplayName}} profile
+
 = content main
   div.row
     div.col-md-12

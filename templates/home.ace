@@ -4,7 +4,19 @@
 = content main
   div.row
     div.col-sm-8
-      h1 Welcome Back
+      h1 Explore
+      h4 Latest services
+      {{range .Services}}
+      div.row
+        div.col-sm-12
+          h3
+            a href=/{{.Owner}}/{{.Name}} {{.Owner}}/{{.Name}}
+          div {{.Description}}
+          div
+            small Updated {{TimeAgo .Updated}}
+          hr
+      {{end}}
+
     div.col-sm-4
       div.panel class=panel-default
         div.panel-heading

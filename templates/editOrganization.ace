@@ -1,0 +1,16 @@
+= content main
+  div.row
+    = include _organizationSettings .Profile
+    div.col-sm-9
+      = include _editProfile .Profile
+
+      div.panel.panel-default
+        div.panel-heading Update Email
+        div.panel-body
+          form.row method=post action=/organizations/{{.Profile.Name}}/settings/email
+            div.col-sm-6
+              div.form-group
+                label for="text" class="control-label" Email
+                input.form-control type=text name=email id=email value={{.Org.Email}}
+              div.form-group
+                button.btn.btn-default Update

@@ -35,7 +35,9 @@ html lang=en
                 span.caret
               ul.dropdown-menu aria-labelledby="dropdownMenu1"
                 li
-                  a href="/new/service" New service
+                  a href="/new/service" New Service
+                li
+                  a href="/new/organization" New Organization
             | &nbsp;
 
             div.dropdown class=btn-group
@@ -68,4 +70,12 @@ html lang=en
 
   script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.4/jquery.min.js"
   script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js" integrity="sha512-K1qjQ+NcF2TYO/eI3M6v8EiNYZfA95pQumfvcVrTHtwQVDG+aHRqLi/ETn2uB+1JqwYqVG3LIvdm9lj6imS/pQ==" crossorigin="anonymous"
+  script
+    | (function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+    | (i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+    | m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+    | })(window,document,'script','//www.google-analytics.com/analytics.js','ga');
+
+    | ga('create', 'UA-70478210-1', 'auto');
+    | ga('send', 'pageview');
   = yield js

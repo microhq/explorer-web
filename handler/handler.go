@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"regexp"
 	"strconv"
+	"strings"
 	"time"
 
 	sjson "github.com/bitly/go-simplejson"
@@ -23,6 +24,7 @@ import (
 	"github.com/micro/explorer-web/session"
 	"github.com/micro/go-micro/client"
 
+	org "github.com/micro/explorer-srv/proto/organization"
 	prf "github.com/micro/explorer-srv/proto/profile"
 	search "github.com/micro/explorer-srv/proto/search"
 	srv "github.com/micro/explorer-srv/proto/service"
@@ -158,8 +160,8 @@ func distanceOfTime(minutes float64) string {
 
 func DeleteService(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
-	profile := vars["profile"]
-	service := vars["service"]
+	profile := strings.ToLower(vars["profile"])
+	service := strings.ToLower(vars["service"])
 
 	if len(profile) == 0 || len(service) == 0 {
 		NotFound(w, r)
@@ -227,412 +229,6 @@ func DeleteService(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func EditProfile(w http.ResponseWriter, r *http.Request) {
-	usrr := session.User(r)
-
-	preq := client.NewRequest("go.micro.srv.explorer", "Profile.Search", &prf.SearchRequest{
-		Name:  usrr,
-		Limit: 1,
-	})
-	prsp := &prf.SearchResponse{}
-	if err := client.Call(context.Background(), preq, prsp); err != nil {
-		session.SetAlert(w, r, err.Error(), "error")
-		http.Redirect(w, r, r.Referer(), 302)
-		return
-	}
-	if prsp.Profiles == nil || len(prsp.Profiles) == 0 {
-		NotFound(w, r)
-		return
-	}
-
-	if r.Method == "GET" {
-		tpl, err := ace.Load("layout", "editProfile", opts)
-		if err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, "/", 302)
-			return
-		}
-		if err := tpl.Execute(w, struct {
-			User    string
-			Alert   *session.Alert
-			Profile *prf.Profile
-		}{session.User(r), session.GetAlert(w, r), prsp.Profiles[0]}); err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, "/", 302)
-			return
-		}
-	} else if r.Method == "POST" {
-		r.ParseForm()
-		prof := prsp.Profiles[0]
-		prof.DisplayName = r.Form.Get("name")
-		prof.Blurb = r.Form.Get("blurb")
-		prof.Url = r.Form.Get("url")
-		prof.Location = r.Form.Get("location")
-
-		preq := client.NewRequest("go.micro.srv.explorer", "Profile.Update", &prf.UpdateRequest{
-			Profile: prof,
-		})
-		prsp := &prf.SearchResponse{}
-		if err := client.Call(context.Background(), preq, prsp); err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
-		session.SetAlert(w, r, "Successfully updated", "success")
-		http.Redirect(w, r, r.Referer(), 302)
-	}
-}
-
-func EditAccount(w http.ResponseWriter, r *http.Request) {
-	usrr := session.User(r)
-
-	preq := client.NewRequest("go.micro.srv.explorer", "Profile.Search", &prf.SearchRequest{
-		Name:  usrr,
-		Limit: 1,
-	})
-	prsp := &prf.SearchResponse{}
-	if err := client.Call(context.Background(), preq, prsp); err != nil {
-		session.SetAlert(w, r, err.Error(), "error")
-		http.Redirect(w, r, r.Referer(), 302)
-		return
-	}
-	if prsp.Profiles == nil || len(prsp.Profiles) == 0 {
-		NotFound(w, r)
-		return
-	}
-
-	if r.Method == "GET" {
-		tpl, err := ace.Load("layout", "editAccount", opts)
-		if err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, "/", 302)
-			return
-		}
-		if err := tpl.Execute(w, struct {
-			User  string
-			Alert *session.Alert
-		}{session.User(r), session.GetAlert(w, r)}); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	}
-}
-
-func EditService(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	profile := vars["profile"]
-	service := vars["service"]
-
-	if len(profile) == 0 || len(service) == 0 {
-		NotFound(w, r)
-		return
-	}
-
-	// get profile
-	preq := client.NewRequest("go.micro.srv.explorer", "Profile.Search", &prf.SearchRequest{
-		Name:  profile,
-		Limit: 1,
-	})
-	prsp := &prf.SearchResponse{}
-	if err := client.Call(context.Background(), preq, prsp); err != nil {
-		session.SetAlert(w, r, err.Error(), "error")
-		http.Redirect(w, r, r.Referer(), 302)
-		return
-	}
-	if prsp.Profiles == nil || len(prsp.Profiles) == 0 {
-		NotFound(w, r)
-		return
-	}
-
-	// get service
-	req := client.NewRequest("go.micro.srv.explorer", "Service.Search", &srv.SearchRequest{
-		Name:  service,
-		Owner: profile,
-		Limit: 1,
-	})
-	rsp := &srv.SearchResponse{}
-	if err := client.Call(context.Background(), req, rsp); err != nil {
-		session.SetAlert(w, r, err.Error(), "error")
-		http.Redirect(w, r, r.Referer(), 302)
-		return
-	}
-
-	usrr := session.User(r)
-
-	if len(rsp.Services) == 0 || usrr != rsp.Services[0].Owner {
-		NotFound(w, r)
-		return
-	}
-
-	if r.Method == "GET" {
-		tpl, err := ace.Load("layout", "editService", opts)
-		if err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, "/", 302)
-			return
-		}
-		if err := tpl.Execute(w, struct {
-			User    string
-			Alert   *session.Alert
-			Service *srv.Service
-		}{session.User(r), session.GetAlert(w, r), rsp.Services[0]}); err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, "/", 302)
-			return
-		}
-	} else if r.Method == "POST" {
-		r.ParseForm()
-		owner := r.Form.Get("owner")
-		name := r.Form.Get("name")
-		desc := r.Form.Get("description")
-		url := r.Form.Get("url")
-		readme := r.Form.Get("readme")
-
-		// VALIDATE
-
-		svc := &srv.Service{
-			Id:          rsp.Services[0].Id,
-			Name:        name,
-			Owner:       owner,
-			Description: desc,
-			Url:         url,
-			Readme:      readme,
-			Created:     rsp.Services[0].Created,
-			Updated:     time.Now().Unix(),
-		}
-		sureq := client.NewRequest("go.micro.srv.explorer", "Service.Update", &srv.UpdateRequest{
-			Service: svc,
-		})
-		sursp := &srv.UpdateResponse{}
-		if err := client.Call(context.Background(), sureq, sursp); err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
-
-		b, _ := json.Marshal(svc)
-		ureq := client.NewRequest("go.micro.srv.explorer", "Search.Update", &search.UpdateRequest{
-			Document: &search.Document{
-				Index: "service",
-				Type:  "service",
-				Id:    rsp.Services[0].Id,
-				Data:  string(b),
-			},
-		})
-		ursp := &srv.UpdateResponse{}
-		if err := client.Call(context.Background(), ureq, ursp); err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
-		http.Redirect(w, r, fmt.Sprintf("/%s/%s", owner, name), 302)
-	}
-}
-
-func EditVersion(w http.ResponseWriter, r *http.Request) {
-	vars := mux.Vars(r)
-	profile := vars["profile"]
-	service := vars["service"]
-	version := vars["version"]
-
-	if len(profile) == 0 || len(service) == 0 || len(version) == 0 {
-		NotFound(w, r)
-		return
-	}
-
-	// get profile
-	preq := client.NewRequest("go.micro.srv.explorer", "Profile.Search", &prf.SearchRequest{
-		Name:  profile,
-		Limit: 1,
-	})
-	prsp := &prf.SearchResponse{}
-	if err := client.Call(context.Background(), preq, prsp); err != nil {
-		session.SetAlert(w, r, err.Error(), "error")
-		http.Redirect(w, r, r.Referer(), 302)
-		return
-	}
-	if prsp.Profiles == nil || len(prsp.Profiles) == 0 {
-		NotFound(w, r)
-		return
-	}
-
-	// get service
-	req := client.NewRequest("go.micro.srv.explorer", "Service.Search", &srv.SearchRequest{
-		Name:  service,
-		Owner: profile,
-		Limit: 1,
-	})
-	rsp := &srv.SearchResponse{}
-	if err := client.Call(context.Background(), req, rsp); err != nil {
-		session.SetAlert(w, r, err.Error(), "error")
-		http.Redirect(w, r, r.Referer(), 302)
-		return
-	}
-
-	usrr := session.User(r)
-
-	if len(rsp.Services) == 0 || usrr != rsp.Services[0].Owner {
-		NotFound(w, r)
-		return
-	}
-
-	vreq := client.NewRequest("go.micro.srv.explorer", "Service.SearchVersion", &srv.SearchVersionRequest{
-		ServiceId: rsp.Services[0].Id,
-		Version:   version,
-		Limit:     1,
-	})
-	vrsp := &srv.SearchVersionResponse{}
-	if err := client.Call(context.Background(), vreq, vrsp); err != nil {
-		session.SetAlert(w, r, err.Error(), "error")
-		http.Redirect(w, r, r.Referer(), 302)
-		return
-	}
-
-	if len(vrsp.Versions) == 0 {
-		NotFound(w, r)
-		return
-	}
-
-	if r.Method == "GET" {
-		tpl, err := ace.Load("layout", "editVersion", opts)
-		if err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, "/", 302)
-			return
-		}
-		if err := tpl.Execute(w, struct {
-			User    string
-			Alert   *session.Alert
-			Service *srv.Service
-			Version *srv.Version
-		}{session.User(r), session.GetAlert(w, r), rsp.Services[0], vrsp.Versions[0]}); err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, "/", 302)
-			return
-		}
-	} else if r.Method == "POST" {
-		r.ParseForm()
-		// VALIDATE
-		api_desc := r.Form.Get("api_description")
-		api_info := r.Form.Get("api_info")
-
-		sources := make(map[string]*srv.Source)
-		endpoints := make(map[string]*srv.Endpoint)
-		deps := make(map[string]*srv.Dependency)
-
-		for k, v := range r.Form {
-			m := re.FindAllStringSubmatch(k, -1)
-			if len(m) == 0 {
-				continue
-			}
-			if len(m[0]) != 4 {
-				continue
-			}
-			if len(v) > 1 || len(v) == 0 {
-				continue
-			}
-
-			switch m[0][1] {
-			case "source":
-				s, ok := sources[m[0][2]]
-				if !ok {
-					s = &srv.Source{
-						Metadata: make(map[string]string),
-					}
-				}
-				if i := m[0][3]; i == "name" {
-					s.Name = v[0]
-				} else if i == "type" {
-					s.Type = v[0]
-				} else {
-					s.Metadata[i] = v[0]
-				}
-				sources[m[0][2]] = s
-			case "endpoint":
-				s, ok := endpoints[m[0][2]]
-				if !ok {
-					s = &srv.Endpoint{
-						Request:  make(map[string]string),
-						Response: make(map[string]string),
-						Metadata: make(map[string]string),
-					}
-				}
-				if i := m[0][3]; i == "name" {
-					s.Name = v[0]
-				} else if i == "request" {
-					s.Request["default"] = v[0]
-				} else if i == "response" {
-					s.Response["default"] = v[0]
-				} else {
-					s.Metadata[i] = v[0]
-				}
-				endpoints[m[0][2]] = s
-			case "dep":
-				s, ok := deps[m[0][2]]
-				if !ok {
-					s = &srv.Dependency{
-						Metadata: make(map[string]string),
-					}
-				}
-				if i := m[0][3]; i == "name" {
-					s.Name = v[0]
-				} else if i == "type" {
-					s.Type = v[0]
-				} else {
-					s.Metadata[i] = v[0]
-				}
-				deps[m[0][2]] = s
-			}
-		}
-
-		api := &srv.API{
-			Metadata: map[string]string{
-				"info":        api_info,
-				"description": api_desc,
-			},
-		}
-
-		ver := &srv.Version{
-			Id:        vrsp.Versions[0].Id,
-			ServiceId: rsp.Services[0].Id,
-			Version:   vrsp.Versions[0].Version,
-			Api:       api,
-			Metadata:  vrsp.Versions[0].Metadata,
-		}
-
-		for _, ep := range endpoints {
-			if len(ep.Name) > 0 {
-				api.Endpoints = append(api.Endpoints, ep)
-			}
-		}
-
-		for _, src := range sources {
-			if len(src.Name) > 0 {
-				ver.Sources = append(ver.Sources, src)
-			}
-		}
-
-		for _, dep := range deps {
-			if len(dep.Name) > 0 {
-				ver.Dependencies = append(ver.Dependencies, dep)
-			}
-		}
-
-		req := client.NewRequest("go.micro.srv.explorer", "Service.UpdateVersion", &srv.UpdateVersionRequest{
-			Version: ver,
-		})
-		rsp := &srv.UpdateVersionResponse{}
-		if err := client.Call(context.Background(), req, rsp); err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
-
-		http.Redirect(w, r, fmt.Sprintf("/%s/%s/version/%s", profile, service, version), 302)
-	}
-	return
-}
-
 func Home(w http.ResponseWriter, r *http.Request) {
 	usrr := session.User(r)
 
@@ -642,6 +238,16 @@ func Home(w http.ResponseWriter, r *http.Request) {
 	})
 	rsp := &srv.SearchResponse{}
 	if err := client.Call(context.Background(), req, rsp); err != nil {
+		session.SetAlert(w, r, err.Error(), "error")
+		http.Redirect(w, r, r.Referer(), 302)
+		return
+	}
+
+	ereq := client.NewRequest("go.micro.srv.explorer", "Service.Search", &srv.SearchRequest{
+		Limit: 10,
+	})
+	ersp := &srv.SearchResponse{}
+	if err := client.Call(context.Background(), ereq, ersp); err != nil {
 		session.SetAlert(w, r, err.Error(), "error")
 		http.Redirect(w, r, r.Referer(), 302)
 		return
@@ -657,7 +263,8 @@ func Home(w http.ResponseWriter, r *http.Request) {
 		User     string
 		Alert    *session.Alert
 		Services []*srv.Service
-	}{usrr, session.GetAlert(w, r), rsp.Services}); err != nil {
+		Explore  []*srv.Service
+	}{usrr, session.GetAlert(w, r), rsp.Services, ersp.Services}); err != nil {
 		session.SetAlert(w, r, err.Error(), "error")
 		http.Redirect(w, r, "/", 302)
 		return
@@ -709,8 +316,6 @@ func Landing(w http.ResponseWriter, r *http.Request) {
 }
 
 func Login(w http.ResponseWriter, r *http.Request) {
-	// GET: render login page
-	// POST: login and redirect to home
 	if r.Method == "GET" {
 		tpl, err := ace.Load("layout", "login", opts)
 		if err != nil {
@@ -727,21 +332,14 @@ func Login(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	} else if r.Method == "POST" {
-		// get username
-		// get password
-		// bcrypt(pass + salt) == stored
-		// if ok
-		// kv.Set("user:session"+user, session{time.Now()+7days})
-		// http.Redirect(w, r, "/", 302)
 		r.ParseForm()
-		username := r.Form.Get("username")
+		username := strings.ToLower(r.Form.Get("username"))
 		password := r.Form.Get("password")
 		if len(username) == 0 || len(password) == 0 {
 			session.SetAlert(w, r, "Username or password can't be blank", "error")
 			http.Redirect(w, r, r.Referer(), 302)
 			return
 		}
-
 		if err := session.Login(w, r, username, password); err != nil {
 			session.SetAlert(w, r, err.Error(), "error")
 			http.Redirect(w, r, "/", 302)
@@ -770,6 +368,113 @@ func NotFound(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func NewOrganization(w http.ResponseWriter, r *http.Request) {
+	if r.Method == "GET" {
+		tpl, err := ace.Load("layout", "newOrganization", opts)
+		if err != nil {
+			session.SetAlert(w, r, err.Error(), "error")
+			http.Redirect(w, r, "/", 302)
+			return
+		}
+		if err := tpl.Execute(w, struct {
+			User  string
+			Alert *session.Alert
+		}{session.User(r), session.GetAlert(w, r)}); err != nil {
+			session.SetAlert(w, r, err.Error(), "error")
+			http.Redirect(w, r, "/", 302)
+			return
+		}
+	} else if r.Method == "POST" {
+		r.ParseForm()
+		owner := strings.ToLower(r.Form.Get("owner"))
+		name := strings.ToLower(r.Form.Get("name"))
+		email := strings.ToLower(r.Form.Get("email"))
+
+		// create org
+		id, err := uuid.NewTime(time.Now())
+		if err != nil {
+			session.SetAlert(w, r, err.Error(), "error")
+			http.Redirect(w, r, r.Referer(), 302)
+			return
+		}
+
+		orgg := &org.Organization{
+			Id:      id.String(),
+			Name:    name,
+			Owner:   owner,
+			Email:   email,
+			Created: time.Now().Unix(),
+			Updated: time.Now().Unix(),
+		}
+
+		if err := validateOrg(orgg); err != nil {
+			session.SetAlert(w, r, err.Error(), "error")
+			http.Redirect(w, r, r.Referer(), 302)
+			return
+		}
+
+		// get profile
+		preq := client.NewRequest("go.micro.srv.explorer", "Profile.Search", &prf.SearchRequest{
+			Name:  name,
+			Limit: 1,
+		})
+		prsp := &prf.SearchResponse{}
+		if err := client.Call(context.Background(), preq, prsp); err != nil {
+			session.SetAlert(w, r, err.Error(), "error")
+			http.Redirect(w, r, r.Referer(), 302)
+			return
+		}
+
+		if len(prsp.Profiles) != 0 {
+			session.SetAlert(w, r, "Organization or user already exists", "error")
+			http.Redirect(w, r, r.Referer(), 302)
+			return
+		}
+
+		// create org
+		req := client.NewRequest("go.micro.srv.explorer", "Organization.Create", &org.CreateRequest{
+			Organization: orgg,
+		})
+		rsp := &org.CreateResponse{}
+		if err := client.Call(context.Background(), req, rsp); err != nil {
+			session.SetAlert(w, r, err.Error(), "error")
+			http.Redirect(w, r, r.Referer(), 302)
+			return
+		}
+
+		// create org profile
+		pcreq := client.NewRequest("go.micro.srv.explorer", "Profile.Create", &prf.CreateRequest{
+			Profile: &prf.Profile{
+				Id:    id.String(),
+				Name:  name,
+				Owner: owner,
+				Type:  1,
+			},
+		})
+		pcrsp := &prf.CreateResponse{}
+		if err := client.Call(context.Background(), pcreq, pcrsp); err != nil {
+			session.SetAlert(w, r, err.Error(), "error")
+			http.Redirect(w, r, r.Referer(), 302)
+			return
+		}
+
+		// create search record
+		b, _ := json.Marshal(orgg)
+		sreq := client.NewRequest("go.micro.srv.explorer", "Search.Create", &search.CreateRequest{
+			Document: &search.Document{
+				Index: "organization",
+				Type:  "organization",
+				Id:    orgg.Id,
+				Data:  string(b),
+			},
+		})
+		srsp := &search.CreateResponse{}
+		client.Call(context.Background(), sreq, srsp)
+
+		http.Redirect(w, r, fmt.Sprintf("/%s", name), 302)
+	}
+}
+
 func NewService(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		tpl, err := ace.Load("layout", "newService", opts)
@@ -788,23 +493,11 @@ func NewService(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if r.Method == "POST" {
 		r.ParseForm()
-		owner := r.Form.Get("owner")
-		name := r.Form.Get("name")
+		owner := strings.ToLower(r.Form.Get("owner"))
+		name := strings.ToLower(r.Form.Get("name"))
 		desc := r.Form.Get("description")
 		url := r.Form.Get("website")
 		readme := r.Form.Get("readme")
-
-		// VALIDATE
-		if len(name) == 0 {
-			session.SetAlert(w, r, "Service name cannot be blank", "error")
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
-		if len(owner) == 0 {
-			session.SetAlert(w, r, "Owner cannot be blank", "error")
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
 
 		// create service
 		id, err := uuid.NewTime(time.Now())
@@ -813,6 +506,7 @@ func NewService(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, r.Referer(), 302)
 			return
 		}
+
 		svc := &srv.Service{
 			Id:          id.String(),
 			Name:        name,
@@ -823,6 +517,13 @@ func NewService(w http.ResponseWriter, r *http.Request) {
 			Created:     time.Now().Unix(),
 			Updated:     time.Now().Unix(),
 		}
+
+		if err := validateService(svc); err != nil {
+			session.SetAlert(w, r, err.Error(), "error")
+			http.Redirect(w, r, r.Referer(), 302)
+			return
+		}
+
 		req := client.NewRequest("go.micro.srv.explorer", "Service.Create", &srv.CreateRequest{
 			Service: svc,
 		})
@@ -1101,30 +802,14 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 		}
 	} else if r.Method == "POST" {
 		r.ParseForm()
-		username := r.Form.Get("username")
+		username := strings.ToLower(r.Form.Get("username"))
 		password := r.Form.Get("password")
-		email := r.Form.Get("email")
+		email := strings.ToLower(r.Form.Get("email"))
 		invite := r.Form.Get("token")
 
-		var thing string
-		var blank bool
-		switch {
-		case len(username) == 0:
-			thing = "username"
-			blank = true
-		case len(password) == 0:
-			thing = "password"
-			blank = true
-		case len(email) == 0:
-			thing = "email"
-			blank = true
-		case len(invite) == 0:
-			thing = "invite token"
-			blank = true
-		}
-
-		if blank {
-			session.SetAlert(w, r, thing+" cannot be blank", "error")
+		// validation
+		if err := validateSignup(username, password, email, invite); err != nil {
+			session.SetAlert(w, r, err.Error(), "error")
 			http.Redirect(w, r, r.Referer(), 302)
 			return
 		}
@@ -1198,54 +883,5 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 		client.Call(context.Background(), tdreq, tdrsp)
 
 		http.Redirect(w, r, "/", 302)
-	}
-}
-
-func UpdatePassword(w http.ResponseWriter, r *http.Request) {
-	if r.Method == "POST" {
-		usrr := session.User(r)
-
-		preq := client.NewRequest("go.micro.srv.explorer", "User.Search", &user.SearchRequest{
-			Username: usrr,
-			Limit:    1,
-		})
-		prsp := &user.SearchResponse{}
-		if err := client.Call(context.Background(), preq, prsp); err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
-		if len(prsp.Users) == 0 {
-			NotFound(w, r)
-			return
-		}
-
-		r.ParseForm()
-		old := r.Form.Get("pass")
-		newPass := r.Form.Get("new_pass")
-		confirm := r.Form.Get("confirm_pass")
-
-		if len(old) == 0 || len(newPass) == 0 || len(confirm) == 0 || newPass != confirm {
-			session.SetAlert(w, r, "Password cannot be blank", "error")
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
-
-		prof := prsp.Users[0]
-
-		ureq := client.NewRequest("go.micro.srv.explorer", "User.UpdatePassword", &user.UpdatePasswordRequest{
-			UserId:          prof.Id,
-			OldPassword:     old,
-			NewPassword:     newPass,
-			ConfirmPassword: confirm,
-		})
-		ursp := &user.UpdatePasswordResponse{}
-		if err := client.Call(context.Background(), ureq, ursp); err != nil {
-			session.SetAlert(w, r, err.Error(), "error")
-			http.Redirect(w, r, r.Referer(), 302)
-			return
-		}
-		session.SetAlert(w, r, "Password updated successfully", "success")
-		http.Redirect(w, r, r.Referer(), 302)
 	}
 }

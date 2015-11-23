@@ -1,3 +1,5 @@
+= content title
+  | {{.Service.Name}} service
 = content main
   // left side column
   div.row 
@@ -13,8 +15,8 @@
 
       {{if eq .Service.Owner .User}}
         p
-          button class="btn btn-sm btn-default"
-            a href="/{{.Service.Owner}}/{{.Service.Name}}/edit" Edit
+          a href="/{{.Service.Owner}}/{{.Service.Name}}/edit"
+            button class="btn btn-sm btn-default" Edit
       {{end}}
 
     {{if .Service.Url}}
@@ -52,8 +54,8 @@
       div.panel class=panel-default
         div.panel-heading
           {{if eq .Service.Owner .User}}
-          button class="btn btn-sm btn-default pull-right"
-            a href="/{{.Service.Owner}}/{{.Service.Name}}/version/{{.Version.Version}}/edit#api" Edit
+          a href="/{{.Service.Owner}}/{{.Service.Name}}/version/{{.Version.Version}}/edit#api"
+            button class="btn btn-sm btn-default pull-right" Edit
           {{end}}
           h5 API
 
@@ -92,8 +94,8 @@
       div.panel class=panel-default
         div.panel-heading
           {{if eq .Service.Owner .User}}
-          button class="btn btn-sm btn-default pull-right"
-            a href="/{{.Service.Owner}}/{{.Service.Name}}/version/{{.Version.Version}}/edit#sources" Edit
+          a href="/{{.Service.Owner}}/{{.Service.Name}}/version/{{.Version.Version}}/edit#sources"
+            button class="btn btn-sm btn-default pull-right" Edit
           {{end}}
           h5 Sources
         div.panel-body
@@ -133,8 +135,8 @@
       div.panel class=panel-default
         div.panel-heading
           {{if eq .Service.Owner .User}}
-          button class="btn btn-sm btn-default pull-right"
-            a href="/{{.Service.Owner}}/{{.Service.Name}}/version/{{.Version.Version}}/edit#deps" Edit
+          a href="/{{.Service.Owner}}/{{.Service.Name}}/version/{{.Version.Version}}/edit#deps"
+            button class="btn btn-sm btn-default pull-right" Edit
           {{end}}
           h5 Dependencies
         div.panel-body

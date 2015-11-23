@@ -1,0 +1,17 @@
+= content main
+  div.row
+  
+    = include _settings
+
+    div.col-sm-9
+      div.panel.panel-default
+        div.panel-heading Your organizations
+        ul.list-group
+          {{range .Orgs}}
+            li.list-group-item
+              span.pull-right
+                a href=/organizations/{{.Name}}/settings/profile
+                  button.btn.btn-sm.btn-default Edit
+              h5
+                a href=/{{.Name}} {{.Name}}
+          {{end}}

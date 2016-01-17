@@ -10,14 +10,57 @@ html lang=en
     link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css" integrity="sha512-dTfge/zgoMYpP7QbHy4gWMEGsbsdZeCXz7irItjcC3sPUFtf0kuFbDz/ixG7ArTxmDjLXDmezHubeNikyKGVyQ==" crossorigin="anonymous"
     link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.4.0/css/font-awesome.min.css"
     = css
-      .footer a { color: #333; };
+      html, body { height: 100%; }
+      .jumbotron { margin-bottom: 0;}
+      .footer a { color: #333; }
+      .login { display: none; }
+      .title .text { color: #333; font-weight: bold; vertical-align: middle; font-size: 2.5em; }
+      .title a { color: #333; vertical-align: bottom }
+      .title .nav { vertical-align: bottom; }
+      .footer { border-top: 1px solid #eee; }
+      h3 a { color: #333; }
   body
+    div.header.container
+      div.row.title
+        img src=https://avatars0.githubusercontent.com/u/5161210 height=60
+        span.text Micro <img src="https://img.shields.io/badge/status-alpha-red.svg" />
     div.jumbotron
-      center
-        h1 <b>[Micro] </b>Services
-        h4 A place to share microservices built with <a href="https://micro.github.io/micro/">Micro</a>
-        h6 We're invite only at the moment.
-    div.container
+      div.container
+        div.row
+          h1 <b>Micro</b>
+          h3 An ecosystem which simplifies building and managing microservices</a>
+          h4 style="font-weight: normal;"
+            | Micro provides the fundamental building blocks to develop distributed systems. 
+            | Technology is rapidly evolving. Cloud computing provides us almost unlimited scale. 
+            | However leveraging this scale is difficult with existing tools. Micro solves this problem 
+            | by addressing the key software development requirements.
+        div.row
+          h3 <a href="https://github.com/micro/micro"><b>Micro</b></a>
+          h4 A microservice toolkit
+          h4 style="font-weight: normal;"
+            | The overarching toolkit, providing entry points into your runtime. 
+            | With an API Gateway, CLI, Web UI and HTTP interface for non-native apps.
+        div.row
+          h3 <a href="https://github.com/micro/go-micro"><b>Go Micro</b></a>
+          h4 A pluggable RPC framework in Go
+          h4 style="font-weight: normal;"
+            | Use go-micro as part of your applications to get distributed systems for free. 
+            | It provides the key requirements for microservices. Service discovery, client-server commmunication, 
+            | pub-sub for an event driven architecture.
+        div.row
+          h3 <a href="https://github.com/micro/go-platform"><b>Go Platform</b></a>
+          h4 A pluggable microservice platform framework in Go
+          h4 style="font-weight: normal;"
+            | Use the go-platform to hook into a platform runtime which is key for running a microservices system 
+            | at scale. Resilient discovery, monitoring, logging, auth, distributed tracing, etc.
+
+        div.row
+          h3 <b>Explorer</b>
+          h4 A place to share microservices built with <a href="https://micro.github.io/micro/">Micro</a>
+          h4 style="font-weight: normal;" The explorer is invite only at the moment. Login or Signup <a href="#login" class="display"><b>here</b></a>
+    div.container.login
+      br
+      | <a name="login"></a>
       div.row
         = include _alert .Alert
         div.col-sm-4.col-sm-offset-2
@@ -60,7 +103,7 @@ html lang=en
                   button.btn.btn-default login
 
     div.footer
-      hr
+      br
       center
         ul.list-group.list-inline
           li
@@ -83,4 +126,9 @@ html lang=en
 
     | ga('create', 'UA-70478210-1', 'auto');
     | ga('send', 'pageview');
-
+  script
+    | $(document).ready( function(){ 
+    |   $('.display').click(function() { 
+    |     $('.login').show();
+    |   })
+    | });

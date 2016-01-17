@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"golang.org/x/net/context"
 
 	prf "github.com/micro/explorer-srv/proto/profile"
+	search "github.com/micro/explorer-srv/proto/search"
 	token "github.com/micro/explorer-srv/proto/token"
 	user "github.com/micro/explorer-srv/proto/user"
 	"github.com/micro/explorer-web/session"
@@ -112,13 +114,15 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, r.Referer(), 302)
 			return
 		}
+
+		usr := &user.User{
+			Id:       id.String(),
+			Username: username,
+			Email:    email,
+		}
 		// create user
 		req := client.NewRequest("go.micro.srv.explorer", "User.Create", &user.CreateRequest{
-			User: &user.User{
-				Id:       id.String(),
-				Username: username,
-				Email:    email,
-			},
+			User:     usr,
 			Password: password,
 		})
 		rsp := &user.CreateResponse{}
@@ -141,6 +145,19 @@ func Signup(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, r.Referer(), 302)
 			return
 		}
+
+		// create search record
+		b, _ := json.Marshal(usr)
+		sreq := client.NewRequest("go.micro.srv.explorer", "Search.Create", &search.CreateRequest{
+			Document: &search.Document{
+				Index: "explorer",
+				Type:  "user",
+				Id:    usr.Id,
+				Data:  string(b),
+			},
+		})
+		srsp := &search.CreateResponse{}
+		client.Call(context.Background(), sreq, srsp)
 
 		// success!
 		// login

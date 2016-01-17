@@ -93,6 +93,20 @@ func EditOrganization(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, r.Referer(), 302)
 			return
 		}
+
+		// create search record
+		b, _ := json.Marshal(prof)
+		sreq := client.NewRequest("go.micro.srv.explorer", "Search.Update", &search.CreateRequest{
+			Document: &search.Document{
+				Index: "explorer",
+				Type:  "profile",
+				Id:    prof.Id,
+				Data:  string(b),
+			},
+		})
+		srsp := &search.CreateResponse{}
+		client.Call(context.Background(), sreq, srsp)
+
 		session.SetAlert(w, r, "Successfully updated", "success")
 		http.Redirect(w, r, r.Referer(), 302)
 	}
@@ -149,6 +163,18 @@ func EditProfile(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, r.Referer(), 302)
 			return
 		}
+		// create search record
+		b, _ := json.Marshal(prof)
+		sreq := client.NewRequest("go.micro.srv.explorer", "Search.Update", &search.CreateRequest{
+			Document: &search.Document{
+				Index: "explorer",
+				Type:  "profile",
+				Id:    prof.Id,
+				Data:  string(b),
+			},
+		})
+		srsp := &search.CreateResponse{}
+		client.Call(context.Background(), sreq, srsp)
 		session.SetAlert(w, r, "Successfully updated", "success")
 		http.Redirect(w, r, r.Referer(), 302)
 	}
@@ -315,7 +341,12 @@ func EditService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if rsp.Services[0].Owner != usrr && prsp.Profiles[0].Type == 1 {
+	if rsp.Services[0].Owner != usrr && prsp.Profiles[0].Type != 1 {
+		NotFound(w, r)
+		return
+	}
+
+	if rsp.Services[0].Owner != usrr {
 		// Find member
 		oreq := client.NewRequest("go.micro.srv.explorer", "Organization.SearchMembers", &org.SearchMembersRequest{
 			OrgName:  prsp.Profiles[0].Name,
@@ -348,9 +379,6 @@ func EditService(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-	} else {
-		NotFound(w, r)
-		return
 	}
 
 	if r.Method == "GET" {
@@ -409,7 +437,7 @@ func EditService(w http.ResponseWriter, r *http.Request) {
 		b, _ := json.Marshal(svc)
 		ureq := client.NewRequest("go.micro.srv.explorer", "Search.Update", &search.UpdateRequest{
 			Document: &search.Document{
-				Index: "service",
+				Index: "explorer",
 				Type:  "service",
 				Id:    rsp.Services[0].Id,
 				Data:  string(b),
@@ -472,7 +500,12 @@ func EditVersion(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if rsp.Services[0].Owner != usrr && prsp.Profiles[0].Type == 1 {
+	if rsp.Services[0].Owner != usrr && prsp.Profiles[0].Type != 1 {
+		NotFound(w, r)
+		return
+	}
+
+	if rsp.Services[0].Owner != usrr {
 		// Find member
 		oreq := client.NewRequest("go.micro.srv.explorer", "Organization.SearchMembers", &org.SearchMembersRequest{
 			OrgName:  prsp.Profiles[0].Name,
@@ -505,9 +538,6 @@ func EditVersion(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-	} else {
-		NotFound(w, r)
-		return
 	}
 
 	vreq := client.NewRequest("go.micro.srv.explorer", "Service.SearchVersion", &srv.SearchVersionRequest{
@@ -662,6 +692,18 @@ func EditVersion(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		// create search record
+		b, _ := json.Marshal(ver)
+		sreq := client.NewRequest("go.micro.srv.explorer", "Search.Update", &search.CreateRequest{
+			Document: &search.Document{
+				Index: "explorer",
+				Type:  "service_version",
+				Id:    ver.Id,
+				Data:  string(b),
+			},
+		})
+		srsp := &search.CreateResponse{}
+		client.Call(context.Background(), sreq, srsp)
 		http.Redirect(w, r, fmt.Sprintf("/%s/%s/version/%s", profile, service, version), 302)
 	}
 	return

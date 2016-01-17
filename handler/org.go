@@ -114,7 +114,7 @@ func NewOrganization(w http.ResponseWriter, r *http.Request) {
 		b, _ := json.Marshal(orgg)
 		sreq := client.NewRequest("go.micro.srv.explorer", "Search.Create", &search.CreateRequest{
 			Document: &search.Document{
-				Index: "organization",
+				Index: "explorer",
 				Type:  "organization",
 				Id:    orgg.Id,
 				Data:  string(b),

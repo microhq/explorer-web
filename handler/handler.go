@@ -206,7 +206,12 @@ func DeleteService(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if rsp.Services[0].Owner != usrr && prsp.Profiles[0].Type == 1 {
+	if rsp.Services[0].Owner != usrr && prsp.Profiles[0].Type != 1 {
+		NotFound(w, r)
+		return
+	}
+
+	if rsp.Services[0].Owner != usrr {
 		// Find member
 		oreq := client.NewRequest("go.micro.srv.explorer", "Organization.SearchMembers", &org.SearchMembersRequest{
 			OrgName:  prsp.Profiles[0].Name,
@@ -239,9 +244,6 @@ func DeleteService(w http.ResponseWriter, r *http.Request) {
 				return
 			}
 		}
-	} else {
-		NotFound(w, r)
-		return
 	}
 
 	// delete from database
@@ -256,7 +258,7 @@ func DeleteService(w http.ResponseWriter, r *http.Request) {
 	}
 	// delete from search indexes
 	sreq := client.NewRequest("go.micro.srv.explorer", "Search.Delete", &search.DeleteRequest{
-		Index: "service",
+		Index: "explorer",
 		Type:  "service",
 		Id:    rsp.Services[0].Id,
 	})
@@ -481,7 +483,7 @@ func NewService(w http.ResponseWriter, r *http.Request) {
 		b, _ := json.Marshal(svc)
 		sreq := client.NewRequest("go.micro.srv.explorer", "Search.Create", &search.CreateRequest{
 			Document: &search.Document{
-				Index: "service",
+				Index: "explorer",
 				Type:  "service",
 				Id:    svc.Id,
 				Data:  string(b),
@@ -497,12 +499,13 @@ func NewService(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, r.Referer(), 302)
 			return
 		}
+		ver := &srv.Version{
+			Id:        vid.String(),
+			ServiceId: id.String(),
+			Version:   "default",
+		}
 		vreq := client.NewRequest("go.micro.srv.explorer", "Service.CreateVersion", &srv.CreateVersionRequest{
-			Version: &srv.Version{
-				Id:        vid.String(),
-				ServiceId: id.String(),
-				Version:   "default",
-			},
+			Version: ver,
 		})
 		vrsp := &srv.CreateResponse{}
 		if err := client.Call(context.Background(), vreq, vrsp); err != nil {
@@ -510,6 +513,18 @@ func NewService(w http.ResponseWriter, r *http.Request) {
 			http.Redirect(w, r, r.Referer(), 302)
 			return
 		}
+		// create search record
+		b, _ = json.Marshal(ver)
+		sreq = client.NewRequest("go.micro.srv.explorer", "Search.Create", &search.CreateRequest{
+			Document: &search.Document{
+				Index: "explorer",
+				Type:  "service_version",
+				Id:    ver.Id,
+				Data:  string(b),
+			},
+		})
+		srsp = &search.CreateResponse{}
+		client.Call(context.Background(), sreq, srsp)
 
 		http.Redirect(w, r, fmt.Sprintf("/%s/%s", owner, name), 302)
 	}
@@ -722,7 +737,7 @@ func Search(w http.ResponseWriter, r *http.Request) {
 	}
 
 	req := client.NewRequest("go.micro.srv.explorer", "Search.Search", &search.SearchRequest{
-		Index:  "service",
+		Index:  "explorer",
 		Type:   "service",
 		Query:  q,
 		Limit:  20,

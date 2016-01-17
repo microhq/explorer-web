@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -11,6 +12,7 @@ import (
 	"github.com/micro/go-micro/client"
 
 	org "github.com/micro/explorer-srv/proto/organization"
+	search "github.com/micro/explorer-srv/proto/search"
 	user "github.com/micro/explorer-srv/proto/user"
 )
 
@@ -62,6 +64,19 @@ func UpdateOrganizationEmail(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, r.Referer(), 302)
 		return
 	}
+	// create search record
+	b, _ := json.Marshal(orgg)
+	sreq := client.NewRequest("go.micro.srv.explorer", "Search.Update", &search.CreateRequest{
+		Document: &search.Document{
+			Index: "explorer",
+			Type:  "organization",
+			Id:    orgg.Id,
+			Data:  string(b),
+		},
+	})
+	srsp := &search.CreateResponse{}
+	client.Call(context.Background(), sreq, srsp)
+
 	session.SetAlert(w, r, "Email updated successfully", "success")
 	http.Redirect(w, r, r.Referer(), 302)
 }
@@ -110,6 +125,20 @@ func UpdateEmail(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, r.Referer(), 302)
 		return
 	}
+
+	// create search record
+	b, _ := json.Marshal(usr)
+	sreq := client.NewRequest("go.micro.srv.explorer", "Search.Update", &search.CreateRequest{
+		Document: &search.Document{
+			Index: "explorer",
+			Type:  "user",
+			Id:    usr.Id,
+			Data:  string(b),
+		},
+	})
+	srsp := &search.CreateResponse{}
+	client.Call(context.Background(), sreq, srsp)
+
 	session.SetAlert(w, r, "Email updated successfully", "success")
 	http.Redirect(w, r, r.Referer(), 302)
 }
